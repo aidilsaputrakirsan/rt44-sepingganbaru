@@ -34,7 +34,12 @@ class DashboardController extends Controller
             $q->whereYear('period', $year);
         }])->get();
 
-        $calendar = $houses->map(function ($house) use ($year) {
+        $calendar = $houses->map(function ($house) {
+            // Pre-group dues by month for O(1) lookup
+            $duesByMonth = $house->dues->keyBy(function ($d) {
+                return \Carbon\Carbon::parse($d->period)->month;
+            });
+
             $data = [
                 'id' => $house->id,
                 'name' => $house->blok . '/' . $house->nomor,
@@ -42,9 +47,7 @@ class DashboardController extends Controller
             ];
 
             for ($m = 1; $m <= 12; $m++) {
-                $monthDue = $house->dues->filter(function ($d) use ($m) {
-                    return \Carbon\Carbon::parse($d->period)->month === $m;
-                })->first();
+                $monthDue = $duesByMonth->get($m);
 
                 $data['months'][$m] = [
                     'status' => $monthDue ? $monthDue->status : 'none',

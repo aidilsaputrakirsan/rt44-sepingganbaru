@@ -53,16 +53,22 @@ class WargaController extends Controller
                 'owner_id' => $user->id,
             ]);
 
-            // Create initial due for the current month
-            $currentPeriod = \Carbon\Carbon::now()->startOfMonth()->format('Y-m-d');
+            // Create dues for all 12 months of the current year
+            $year = now()->year;
             $amount = ($house->status_huni === 'berpenghuni') ? 160000 : 110000;
 
-            \App\Models\Due::create([
-                'house_id' => $house->id,
-                'period' => $currentPeriod,
-                'amount' => $amount,
-                'status' => 'unpaid'
-            ]);
+            for ($m = 1; $m <= 12; $m++) {
+                $period = \Carbon\Carbon::create($year, $m, 1)->format('Y-m-d');
+                $dueDate = \Carbon\Carbon::create($year, $m, 1)->endOfMonth()->format('Y-m-d');
+
+                \App\Models\Due::create([
+                    'house_id' => $house->id,
+                    'period' => $period,
+                    'amount' => $amount,
+                    'due_date' => $dueDate,
+                    'status' => 'unpaid'
+                ]);
+            }
         });
 
         return back()->with('success', 'Data warga berhasil ditambahkan.');

@@ -74,22 +74,7 @@ class DummyDataSeeder extends Seeder
             }
         }
 
-        // 4. Create Special Cases
-        // Case: Connected Houses (Sultan) - G1/1 & G1/2
-        $sultan = User::create([
-            'name' => 'Sultan Andara',
-            'email' => 'sultan@rt44.com',
-            'password' => Hash::make('password'),
-            'role' => 'warga',
-            'no_rumah' => 'G1/1-2',
-        ]);
-
-        // Update first two houses to be owned by Sultan and connected
-        $h1 = House::where('blok', 'G1')->where('nomor', '1')->first();
-        $h2 = House::where('blok', 'G1')->where('nomor', '2')->first();
-
-        $h1->update(['owner_id' => $sultan->id, 'status_huni' => 'berpenghuni', 'is_connected' => true, 'meteran_count' => 1]);
-        $h2->update(['owner_id' => $sultan->id, 'status_huni' => 'berpenghuni', 'is_connected' => true, 'meteran_count' => 1]);
+        // 4. (Section removed - Sultan case removed to ensure 1 house 1 user)
 
 
         // 5. Generate Dues & Payments for Current Year
@@ -105,10 +90,7 @@ class DummyDataSeeder extends Seeder
                 // Determine Amount (Wajib Portion)
                 $amount = ($house->status_huni === 'berpenghuni') ? 160000 : 110000;
 
-                // Adjustment for special sultan case (135k logic)
-                if ($house->is_connected && $house->meteran_count == 1) {
-                    $amount = 135000;
-                }
+                // (Adjustment for 135k logic removed to maintain standard 160k)
 
                 $due = Due::create([
                     'house_id' => $house->id,

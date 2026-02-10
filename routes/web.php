@@ -11,8 +11,6 @@ Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
     ]);
 });
 
@@ -31,6 +29,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/calendar', [AdminController::class, 'calendar'])->name('admin.calendar');
     Route::post('/admin/payment/{due}', [AdminController::class, 'storePayment'])->name('admin.payment.store');
     Route::patch('/admin/due/{due}', [AdminController::class, 'updateDue'])->name('admin.due.update');
+    Route::post('/admin/reminder/{house}', [AdminController::class, 'sendReminder'])->name('admin.reminder.send');
 
     // Warga (Resident) Data Routes
     Route::get('/admin/warga', [\App\Http\Controllers\WargaController::class, 'index'])->name('admin.warga.index');
