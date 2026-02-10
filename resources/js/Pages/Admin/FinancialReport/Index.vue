@@ -8,7 +8,7 @@ import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/Components/ui/dialog';
-import { TrendingUp, TrendingDown, Wallet, Calendar, Calculator, ArrowRight, Settings2 } from 'lucide-vue-next';
+import { TrendingUp, TrendingDown, Wallet, Calendar, Calculator, ArrowRight, Settings2, FileDown } from 'lucide-vue-next';
 
 const props = defineProps({
     report: Object,
@@ -65,6 +65,14 @@ const changePeriod = (e) => {
     const [year, month] = e.target.value.split('-');
     router.get(route('admin.report.index'), { month: parseInt(month), year: parseInt(year) }, { preserveState: true });
 };
+
+const exportPdf = () => {
+    const period = props.report.period.split('-');
+    window.location.href = route('admin.report.export-pdf', { 
+        month: parseInt(period[1]), 
+        year: parseInt(period[0]) 
+    });
+};
 </script>
 
 <template>
@@ -86,6 +94,10 @@ const changePeriod = (e) => {
                             class="border-none bg-transparent p-0 text-sm font-semibold focus:ring-0"
                         />
                     </div>
+                    <Button variant="outline" size="sm" @click="exportPdf" class="bg-white hover:bg-slate-50 border-indigo-200 text-indigo-700">
+                        <FileDown class="w-4 h-4 mr-2" />
+                        Ekspor PDF
+                    </Button>
                     <Button variant="outline" size="sm" @click="openModal">
                         <Settings2 class="w-4 h-4 mr-2" />
                         Set Saldo Awal
@@ -140,14 +152,12 @@ const changePeriod = (e) => {
                                 <div class="flex justify-between items-center p-4 rounded-lg bg-slate-50 dark:bg-slate-900 border border-dashed text-sm">
                                     <div class="flex flex-col">
                                         <span class="font-bold">Iuran Wajib</span>
-                                        <span class="text-[10px] text-muted-foreground uppercase tracking-wider">Mandatory Fees</span>
                                     </div>
                                     <span class="text-lg font-bold text-slate-900 dark:text-slate-100">{{ formatCurrency(report.income_wajib) }}</span>
                                 </div>
                                 <div class="flex justify-between items-center p-4 rounded-lg bg-slate-50 dark:bg-slate-900 border border-dashed text-sm">
                                     <div class="flex flex-col">
                                         <span class="font-bold">Iuran Sukarela</span>
-                                        <span class="text-[10px] text-muted-foreground uppercase tracking-wider">Voluntary / Excess</span>
                                     </div>
                                     <span class="text-lg font-bold text-slate-900 dark:text-slate-100">{{ formatCurrency(report.income_sukarela) }}</span>
                                 </div>
