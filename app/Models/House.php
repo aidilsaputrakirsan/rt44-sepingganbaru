@@ -12,6 +12,7 @@ class House extends Model
         'blok',
         'nomor',
         'status_huni',
+        'resident_status',
         'is_connected',
         'meteran_count',
         'owner_id',

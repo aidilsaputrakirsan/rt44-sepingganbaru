@@ -1,7 +1,7 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut } from 'lucide-vue-next';
+import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart } from 'lucide-vue-next';
 
 const props = defineProps({
     mobile: {
@@ -18,9 +18,11 @@ const menuItems = computed(() => {
     if (isAdmin.value) {
         return [
             { name: 'Dashboard', icon: LayoutDashboard, route: 'admin.dashboard' },
+            { name: 'Data Warga', icon: UserCircle, route: 'admin.warga.index' },
+            { name: 'Tagihan Per Rumah', icon: Receipt, route: 'admin.tagihan' },
             { name: 'Kalender Iuran', icon: Calendar, route: 'admin.calendar' },
-            { name: 'Data Warga', icon: Users, route: 'admin.dashboard' }, // Placeholder
-            { name: 'Pengeluaran', icon: Receipt, route: 'admin.dashboard' }, // Placeholder
+            { name: 'Pengeluaran', icon: Receipt, route: 'admin.expenses.index' },
+            { name: 'Laporan Keuangan', icon: PieChart, route: 'admin.report.index' },
         ];
     } else {
         return [

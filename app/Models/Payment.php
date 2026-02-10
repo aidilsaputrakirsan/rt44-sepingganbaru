@@ -13,6 +13,8 @@ class Payment extends Model
         'recorded_by',
         'payer_id',
         'amount_paid',
+        'amount_wajib',
+        'amount_sukarela',
         'method',
         'status',
         'proof_path',
