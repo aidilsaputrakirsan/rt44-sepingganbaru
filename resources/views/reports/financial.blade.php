@@ -48,7 +48,19 @@
             color: #1e1b4b;
             margin-top: 20px;
             margin-bottom: 10px;
-            border-left: 4px solid #4f46e5;
+            border-left: 4px solid #46d2e5;
+            font-size: 13px;
+        }
+
+        .section-title-main {
+            background-color: #eef2ff;
+            color: #1e1b4b;
+            padding: 10px 14px;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 0;
+            border-left: 5px solid #4f46e5;
+            border-bottom: 2px solid #4f46e5;
         }
 
         table {
@@ -159,23 +171,23 @@
         <p>Periode: {{ $report['period_label'] }}</p>
     </div>
 
-    <div class="section-title">Ringkasan Saldo</div>
-    <table>
+    <div class="section-title-main">Ringkasan Saldo</div>
+    <table style="border: 1px solid #c7d2fe; margin-bottom: 25px;">
         <tr>
-            <td>Saldo Awal Periode</td>
-            <td class="text-right font-bold">{{ $formatCurrency($report['saldo_awal']) }}</td>
+            <td style="border-bottom: 1px solid #e0e7ff; padding: 12px; background-color: #f8faff;">Saldo Awal Periode</td>
+            <td class="text-right font-bold" style="border-bottom: 1px solid #e0e7ff; padding: 12px; background-color: #f8faff; font-size: 13px;">{{ $formatCurrency($report['saldo_awal']) }}</td>
         </tr>
         <tr>
-            <td class="income-text">Total Pemasukan (Iuran)</td>
-            <td class="text-right font-bold income-text">+ {{ $formatCurrency($report['total_income']) }}</td>
+            <td style="border-bottom: 1px solid #e0e7ff; padding: 12px;" class="income-text">Total Pemasukan (Iuran)</td>
+            <td class="text-right font-bold income-text" style="border-bottom: 1px solid #e0e7ff; padding: 12px; font-size: 13px;">+ {{ $formatCurrency($report['total_income']) }}</td>
         </tr>
         <tr>
-            <td class="expense-text">Total Pengeluaran</td>
-            <td class="text-right font-bold expense-text">- {{ $formatCurrency($report['total_expenses']) }}</td>
+            <td style="border-bottom: 1px solid #e0e7ff; padding: 12px;" class="expense-text">Total Pengeluaran</td>
+            <td class="text-right font-bold expense-text" style="border-bottom: 1px solid #e0e7ff; padding: 12px; font-size: 13px;">- {{ $formatCurrency($report['total_expenses']) }}</td>
         </tr>
-        <tr class="total-row">
-            <td class="font-bold">Saldo Akhir Kas</td>
-            <td class="text-right font-bold" style="font-size: 16px; color: #16a34a;">
+        <tr style="background-color: #eef2ff;">
+            <td class="font-bold" style="padding: 14px 12px; color: #1e1b4b; font-size: 13px;">Saldo Akhir Kas</td>
+            <td class="text-right font-bold" style="font-size: 18px; color: #4f46e5; padding: 14px 12px;">
                 {{ $formatCurrency($report['saldo_akhir']) }}
             </td>
         </tr>
@@ -185,22 +197,26 @@
     <table>
         <thead>
             <tr>
+                <th style="width: 40px; text-align: center;">No</th>
                 <th>Sumber Pemasukan</th>
                 <th class="text-right">Nominal</th>
             </tr>
         </thead>
         <tbody>
             <tr>
+                <td style="text-align: center;">1</td>
                 <td>Iuran Wajib</td>
                 <td class="text-right">{{ $formatCurrency($report['income_wajib']) }}</td>
             </tr>
             <tr>
+                <td style="text-align: center;">2</td>
                 <td>Iuran Sukarela</td>
                 <td class="text-right">{{ $formatCurrency($report['income_sukarela']) }}</td>
             </tr>
         </tbody>
         <tfoot>
             <tr class="font-bold">
+                <td></td>
                 <td>Total Pemasukan</td>
                 <td class="text-right income-text">{{ $formatCurrency($report['total_income']) }}</td>
             </tr>
@@ -211,6 +227,7 @@
     <table>
         <thead>
             <tr>
+                <th style="width: 40px; text-align: center;">No</th>
                 <th>Deskripsi Kegiatan / Keperluan</th>
                 <th class="text-right">Nominal</th>
             </tr>
@@ -218,12 +235,13 @@
         <tbody>
             @forelse($report['expenses'] as $expense)
                 <tr>
+                    <td style="text-align: center;">{{ $loop->iteration }}</td>
                     <td>{{ $expense->title }}</td>
                     <td class="text-right expense-text">{{ $formatCurrency($expense->amount) }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="2" style="text-align: center; color: #94a3b8; font-style: italic;">Tidak ada catatan
+                    <td colspan="3" style="text-align: center; color: #94a3b8; font-style: italic;">Tidak ada catatan
                         pengeluaran.</td>
                 </tr>
             @endforelse
@@ -231,6 +249,7 @@
         @if(count($report['expenses']) > 0)
             <tfoot>
                 <tr class="font-bold">
+                    <td></td>
                     <td>Total Pengeluaran</td>
                     <td class="text-right expense-text">{{ $formatCurrency($report['total_expenses']) }}</td>
                 </tr>
@@ -238,7 +257,7 @@
         @endif
     </table>
 
-    <div style="margin-top: 40px;">
+    <div style="margin-top: 20px;">
         <p style="text-align: center; margin-bottom: 20px;">Mengetahui,</p>
         <div class="signature-container">
             <div class="signature-box" style="float: left;">

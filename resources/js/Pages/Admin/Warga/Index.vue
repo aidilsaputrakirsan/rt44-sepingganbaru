@@ -15,12 +15,22 @@ import { Badge } from '@/Components/ui/badge';
 import { 
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/Components/ui/select';
-import { 
-    Users, Plus, Trash2, Edit2, Upload, FileText, CheckCircle2, AlertCircle 
+import {
+    Users, Plus, Trash2, Edit2, Upload, FileText, CheckCircle2, AlertCircle, Search, X
 } from 'lucide-vue-next';
 
 const props = defineProps({
     houses: Array,
+});
+
+const searchQuery = ref('');
+const filteredHouses = computed(() => {
+    const q = searchQuery.value.toLowerCase().trim();
+    if (!q) return props.houses;
+    return props.houses.filter(h =>
+        (h.blok + '/' + h.nomor).toLowerCase().includes(q) ||
+        (h.owner?.name || '').toLowerCase().includes(q)
+    );
 });
 
 const isAddModalOpen = ref(false);
@@ -151,6 +161,20 @@ const getResidentStatusVariant = (status) => {
                 <!-- Data Table -->
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-2xl border border-slate-200 dark:border-slate-800">
                     <div class="p-6">
+                        <!-- Search -->
+                        <div class="mb-4 relative max-w-xs">
+                            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                                v-model="searchQuery"
+                                type="text"
+                                placeholder="Cari rumah atau pemilik..."
+                                class="pl-9 pr-8 h-9 text-sm"
+                            />
+                            <button v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                <X class="w-4 h-4" />
+                            </button>
+                        </div>
+
                         <Table>
                             <TableHeader>
                                 <TableRow class="hover:bg-transparent border-slate-200 dark:border-slate-800">
@@ -163,7 +187,7 @@ const getResidentStatusVariant = (status) => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                <TableRow v-for="house in houses" :key="house.id" class="border-slate-100 dark:border-slate-800/50">
+                                <TableRow v-for="house in filteredHouses" :key="house.id" class="border-slate-100 dark:border-slate-800/50">
                                     <TableCell class="font-bold text-indigo-600 dark:text-indigo-400 py-4">
                                         {{ house.blok }}/{{ house.nomor }}
                                     </TableCell>
@@ -216,7 +240,7 @@ const getResidentStatusVariant = (status) => {
                                     </TableCell>
                                 </TableRow>
 
-                                <TableRow v-if="houses.length === 0">
+                                <TableRow v-if="filteredHouses.length === 0">
                                     <TableCell colspan="6" class="text-center py-12 text-slate-500">
                                         Belum ada data warga.
                                     </TableCell>

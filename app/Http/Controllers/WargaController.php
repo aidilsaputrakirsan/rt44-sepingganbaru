@@ -14,7 +14,9 @@ class WargaController extends Controller
     public function index()
     {
         $houses = House::with('owner')
-            ->orderBy('blok')
+            ->orderByRaw("REGEXP_SUBSTR(blok, '^[A-Za-z]+') ASC")
+            ->orderByRaw("CAST(REGEXP_SUBSTR(blok, '[0-9]+') AS UNSIGNED) ASC")
+            ->orderByRaw('CAST(nomor AS UNSIGNED) ASC')
             ->orderBy('nomor')
             ->get();
 

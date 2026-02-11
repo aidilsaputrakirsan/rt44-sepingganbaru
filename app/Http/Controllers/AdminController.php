@@ -9,6 +9,7 @@ use App\Models\Due;
 use App\Models\House;
 use App\Models\Payment;
 use App\Services\FonnteService;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class AdminController extends Controller
 {
@@ -40,7 +41,12 @@ class AdminController extends Controller
         // Get list of dues for "Tagihan Data Warga" page
         $dues = Due::with(['house.owner'])
             ->where('period', $currentPeriod)
-            ->orderBy('house_id')
+            ->join('houses', 'dues.house_id', '=', 'houses.id')
+            ->orderByRaw("REGEXP_SUBSTR(houses.blok, '^[A-Za-z]+') ASC")
+            ->orderByRaw("CAST(REGEXP_SUBSTR(houses.blok, '[0-9]+') AS UNSIGNED) ASC")
+            ->orderByRaw('CAST(houses.nomor AS UNSIGNED) ASC')
+            ->orderBy('houses.nomor')
+            ->select('dues.*')
             ->get()
             ->map(function ($due) {
                 return [
@@ -55,6 +61,37 @@ class AdminController extends Controller
         return Inertia::render('Admin/TagihanDataWarga', [
             'dues' => $dues,
         ]);
+    }
+
+    public function bulkUpdateDues(Request $request)
+    {
+        $request->validate([
+            'amount_berpenghuni' => 'nullable|numeric|min:0',
+            'amount_kosong' => 'nullable|numeric|min:0',
+        ]);
+
+        if ($request->amount_berpenghuni === null && $request->amount_kosong === null) {
+            return back()->with('error', 'Minimal isi salah satu nominal.');
+        }
+
+        $currentPeriod = Carbon::today()->startOfMonth();
+        $updated = 0;
+
+        if ($request->amount_berpenghuni !== null) {
+            $count = Due::where('period', $currentPeriod)
+                ->whereHas('house', fn($q) => $q->where('status_huni', 'berpenghuni'))
+                ->update(['amount' => $request->amount_berpenghuni]);
+            $updated += $count;
+        }
+
+        if ($request->amount_kosong !== null) {
+            $count = Due::where('period', $currentPeriod)
+                ->whereHas('house', fn($q) => $q->where('status_huni', 'kosong'))
+                ->update(['amount' => $request->amount_kosong]);
+            $updated += $count;
+        }
+
+        return back()->with('success', "Berhasil memperbarui {$updated} tagihan.");
     }
 
     public function updateDue(Request $request, Due $due)
@@ -77,7 +114,8 @@ class AdminController extends Controller
         $year = $request->input('year', now()->year);
 
         $houses = House::with('owner')
-            ->orderBy('blok')
+            ->orderByRaw("REGEXP_SUBSTR(blok, '^[A-Za-z]+') ASC")
+            ->orderByRaw("CAST(REGEXP_SUBSTR(blok, '[0-9]+') AS UNSIGNED) ASC")
             ->orderByRaw('CAST(nomor AS UNSIGNED) ASC')
             ->orderBy('nomor')
             ->get();
@@ -130,24 +168,79 @@ class AdminController extends Controller
         ]);
     }
 
+    public function exportCalendarPdf(Request $request)
+    {
+        $year = $request->input('year', now()->year);
+
+        $houses = House::with('owner')
+            ->orderByRaw("REGEXP_SUBSTR(blok, '^[A-Za-z]+') ASC")
+            ->orderByRaw("CAST(REGEXP_SUBSTR(blok, '[0-9]+') AS UNSIGNED) ASC")
+            ->orderByRaw('CAST(nomor AS UNSIGNED) ASC')
+            ->orderBy('nomor')
+            ->get();
+
+        $dues = Due::with('payments')
+            ->whereYear('period', $year)
+            ->get();
+
+        $duesGrouped = $dues->keyBy(function ($d) {
+            return $d->house_id . '-' . Carbon::parse($d->period)->month;
+        });
+
+        $calendar = $houses->map(function ($house) use ($duesGrouped) {
+            $data = [
+                'name' => $house->blok . '/' . $house->nomor,
+                'months' => []
+            ];
+
+            for ($m = 1; $m <= 12; $m++) {
+                $monthDue = $duesGrouped->get($house->id . '-' . $m);
+                $paidAmount = 0;
+                if ($monthDue) {
+                    $paidAmount = $monthDue->payments->where('status', 'verified')->sum('amount_paid');
+                }
+
+                $data['months'][$m] = [
+                    'status' => $monthDue ? $monthDue->status : 'none',
+                    'paid_amount' => $paidAmount,
+                ];
+            }
+            return $data;
+        })->toArray();
+
+        $pdf = Pdf::loadView('reports.calendar', [
+            'calendar' => $calendar,
+            'year' => (int) $year,
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download("Kalender_Iuran_RT44_{$year}.pdf");
+    }
+
     public function storePayment(Request $request, Due $due)
     {
         $request->validate([
-            'amount' => 'required|numeric|min:1',
+            'amount' => 'required|numeric|min:0',
         ]);
 
         $house = $due->house;
-        $statusHuni = $house->status_huni; // 'berpenghuni' or 'kosong'
+        $amountPaid = $request->amount;
 
-        // Define Wajib amount based on status
+        // Jika 0, hapus payment manual dan kembalikan status due
+        if ($amountPaid == 0) {
+            Payment::where('due_id', $due->id)->where('method', 'manual')->delete();
+
+            $totalPaidWajib = $due->payments()->where('status', 'verified')->sum('amount_wajib');
+            $due->update(['status' => $totalPaidWajib >= $due->amount ? 'paid' : 'unpaid']);
+
+            return back()->with('success', 'Pembayaran manual berhasil dihapus.');
+        }
+
+        $statusHuni = $house->status_huni;
         $wajibAmount = ($statusHuni === 'berpenghuni') ? 160000 : 110000;
 
-        $amountPaid = $request->amount;
         $amountWajib = min($amountPaid, $wajibAmount);
         $amountSukarela = max(0, $amountPaid - $wajibAmount);
 
-        // Use updateOrCreate to avoid accumulation for manual entries by Admin
-        // We identify the 'manual' payment for this due
         Payment::updateOrCreate(
             [
                 'due_id' => $due->id,
@@ -164,16 +257,111 @@ class AdminController extends Controller
             ]
         );
 
-        // Check if fully paid (mandatory portion)
         $totalPaidWajib = $due->payments()->where('status', 'verified')->sum('amount_wajib');
 
         if ($totalPaidWajib >= $due->amount) {
             $due->update(['status' => 'paid']);
         } else {
-            $due->update(['status' => 'unpaid']); // In case it was paid and then updated to lower
+            $due->update(['status' => 'unpaid']);
         }
 
         return back()->with('success', 'Data pembayaran berhasil diperbarui.');
+    }
+
+    /**
+     * Build reminder message for a house with all unpaid dues up to cutoff date.
+     * Cutoff: tanggal 5 setiap bulan — bulan berjalan dianggap jatuh tempo setelah tanggal 5.
+     */
+    private function buildReminderMessage(House $house, int $year): ?array
+    {
+        $owner = $house->owner;
+        if (!$owner) return null;
+
+        // Tentukan bulan cutoff: jika tanggal >= 5, bulan ini termasuk; jika < 5, sampai bulan lalu
+        $today = Carbon::today();
+        if ($today->year == $year) {
+            $cutoffMonth = $today->day >= 5 ? $today->month : $today->month - 1;
+        } else if ($today->year > $year) {
+            $cutoffMonth = 12; // Tahun lalu, semua bulan
+        } else {
+            $cutoffMonth = 0; // Tahun depan, belum ada yang jatuh tempo
+        }
+
+        if ($cutoffMonth < 1) return null;
+
+        $cutoffDate = Carbon::create($year, $cutoffMonth, 1)->endOfMonth();
+
+        // Ambil semua tagihan belum lunas sampai bulan cutoff (dengan payments untuk hitung sisa)
+        $unpaidDues = Due::with('payments')
+            ->where('house_id', $house->id)
+            ->where('status', 'unpaid')
+            ->whereYear('period', $year)
+            ->where('period', '<=', $cutoffDate)
+            ->orderBy('period', 'asc')
+            ->get();
+
+        if ($unpaidDues->isEmpty()) return null;
+
+        // Build detail per bulan — hitung sisa (tagihan - sudah dibayar verified)
+        $details = [];
+        $totalAmount = 0;
+        foreach ($unpaidDues as $due) {
+            $paidAmount = $due->payments->where('status', 'verified')->sum('amount_wajib');
+            $remaining = max(0, $due->amount - $paidAmount);
+            if ($remaining <= 0) continue;
+
+            $monthName = Carbon::parse($due->period)->translatedFormat('F');
+            $remainingStr = "Rp " . number_format($remaining, 0, ',', '.');
+
+            if ($paidAmount > 0) {
+                $details[] = "• *{$monthName}*: {$remainingStr} (sisa)";
+            } else {
+                $details[] = "• *{$monthName}*: {$remainingStr}";
+            }
+            $totalAmount += $remaining;
+        }
+
+        if (empty($details)) return null;
+
+        $totalStr = "Rp " . number_format($totalAmount, 0, ',', '.');
+        $detailText = implode("\n", $details);
+        $bulanCount = count($unpaidDues);
+
+        $message = "Assalamu'alaikum Bapak/Ibu {$owner->name},\n\n"
+            . "Kami menginformasikan tagihan iuran RT 44 Sepinggan Baru tahun {$year} untuk rumah {$house->blok}/{$house->nomor} yang belum lunas.\n\n"
+            . "📌 *Rincian Tagihan ({$bulanCount} bulan):*\n"
+            . "{$detailText}\n\n"
+            . "💰 *Total: {$totalStr}*\n\n"
+            . "Mohon untuk segera melakukan pembayaran. Bagi Bapak/Ibu yang ingin berpartisipasi lebih melalui dana sukarela, kami sangat mengapresiasi dukungan tersebut untuk pengembangan lingkungan kita bersama. ✅\n\n"
+            . "Terima kasih atas partisipasi dan kerja samanya. 🙏\n\n"
+            . "Salam,\n"
+            . "*Ketua RT 44*";
+
+        return [
+            'message' => $message,
+            'unpaid_count' => $bulanCount,
+            'total_amount' => $totalAmount,
+        ];
+    }
+
+    public function previewReminder(Request $request, House $house)
+    {
+        $request->validate(['year' => 'required|integer']);
+
+        $result = $this->buildReminderMessage($house, $request->year);
+
+        if (!$result) {
+            return response()->json([
+                'message' => null,
+                'error' => 'Semua iuran sudah lunas atau belum jatuh tempo.',
+            ]);
+        }
+
+        return response()->json([
+            'message' => $result['message'],
+            'unpaid_count' => $result['unpaid_count'],
+            'total_amount' => $result['total_amount'],
+        ]);
     }
 
     public function sendReminder(Request $request, House $house)
@@ -189,36 +377,19 @@ class AdminController extends Controller
             return back()->with('error', 'Nomor HP pemilik rumah ' . $house->blok . '/' . $house->nomor . ' belum terdaftar.');
         }
 
-        // Ambil hanya tagihan tertua yang belum lunas
-        $oldestDue = Due::where('house_id', $house->id)
-            ->where('status', 'unpaid')
-            ->whereYear('period', $year)
-            ->orderBy('period', 'asc')
-            ->first();
+        $result = $this->buildReminderMessage($house, $year);
 
-        if (!$oldestDue) {
-            return back()->with('error', 'Semua iuran untuk tahun ' . $year . ' sudah lunas.');
+        if (!$result) {
+            return back()->with('error', 'Semua iuran untuk tahun ' . $year . ' sudah lunas atau belum jatuh tempo.');
         }
 
-        $monthName = Carbon::parse($oldestDue->period)->translatedFormat('F');
-        $amountStr = "Rp " . number_format($oldestDue->amount, 0, ',', '.');
-
-        // Format pesan profesional ala Ketua RT
-        $message = "Assalamu'alaikum Bapak/Ibu {$owner->name},\n\n"
-            . "Kami menginformasikan tagihan iuran RT 44 Sepinggan Baru tahun {$year} untuk rumah {$house->blok}/{$house->nomor}.\n\n"
-            . "📌 *Bulan {$monthName}*: {$amountStr}\n\n"
-            . "Sebagai informasi, nominal tersebut merupakan iuran wajib bulanan. Bagi Bapak/Ibu yang ingin berpartisipasi lebih melalui dana sukarela, kami sangat mengapresiasi dukungan tersebut untuk pengembangan lingkungan kita bersama. ✅\n\n"
-            . "Terima kasih atas partisipasi dan kerja samanya. 🙏\n\n"
-            . "Salam,\n"
-            . "*Ketua RT 44*";
-
         $fonnte = new FonnteService();
-        $result = $fonnte->send($owner->phone_number, $message);
+        $sendResult = $fonnte->send($owner->phone_number, $result['message']);
 
-        if ($result['success']) {
+        if ($sendResult['success']) {
             return back()->with('success', 'Reminder WA berhasil dikirim ke ' . $owner->name);
         }
 
-        return back()->with('error', $result['message']);
+        return back()->with('error', $sendResult['message']);
     }
 }

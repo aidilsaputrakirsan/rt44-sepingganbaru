@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { MessageCircle, Loader2 } from 'lucide-vue-next';
+import { Search, X, Loader2, ChevronLeft, ChevronRight, Download } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
 const props = defineProps({
@@ -19,6 +19,19 @@ const months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ];
+
+const changeYear = (delta) => {
+    router.get(route('admin.calendar'), { year: props.year + delta }, { preserveState: false });
+};
+
+const searchQuery = ref('');
+const filteredCalendar = computed(() => {
+    const q = searchQuery.value.toLowerCase().trim();
+    if (!q) return props.calendar;
+    return props.calendar.filter(row =>
+        row.name.toLowerCase().includes(q) || row.owner.toLowerCase().includes(q)
+    );
+});
 
 const selectedDue = ref(null);
 const isModalOpen = ref(false);
@@ -76,7 +89,7 @@ const handleInput = (e) => {
 };
 
 const submitPayment = () => {
-    if (!selectedDue.value || !form.amount) return;
+    if (!selectedDue.value || form.amount === '' || form.amount === null) return;
 
     form.post(route('admin.payment.store', selectedDue.value.id), {
         onSuccess: () => {
@@ -119,9 +132,24 @@ const hasUnpaid = (row) => {
     return Object.values(row.months).some(m => m.status === 'unpaid' || m.status === 'overdue');
 };
 
-const openReminderModal = (row) => {
+const reminderMessage = ref('');
+const reminderPreviewLoading = ref(false);
+
+const openReminderModal = async (row) => {
     reminderTarget.value = row;
+    reminderMessage.value = '';
+    reminderPreviewLoading.value = true;
     isReminderModalOpen.value = true;
+
+    try {
+        const response = await fetch(route('admin.reminder.preview', row.id) + '?year=' + props.year);
+        const data = await response.json();
+        reminderMessage.value = data.message || data.error || 'Tidak ada tagihan yang perlu diingatkan.';
+    } catch (e) {
+        reminderMessage.value = 'Gagal memuat preview pesan.';
+    } finally {
+        reminderPreviewLoading.value = false;
+    }
 };
 
 const confirmSendReminder = () => {
@@ -157,14 +185,49 @@ const confirmSendReminder = () => {
             <div class="mx-auto max-w-[95%] sm:px-6 lg:px-8">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Matrix Pembayaran</CardTitle>
-                        <p class="text-sm text-muted-foreground">Klik pada kolom bulan untuk mencatat pembayaran manual.</p>
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div>
+                                <CardTitle>Matrix Pembayaran</CardTitle>
+                                <p class="text-sm text-muted-foreground mt-1">Klik pada kolom bulan untuk mencatat pembayaran manual.</p>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <div class="flex items-center gap-2">
+                                    <Button variant="outline" size="icon" class="h-8 w-8" @click="changeYear(-1)">
+                                        <ChevronLeft class="w-4 h-4" />
+                                    </Button>
+                                    <span class="text-lg font-bold min-w-[60px] text-center">{{ year }}</span>
+                                    <Button variant="outline" size="icon" class="h-8 w-8" @click="changeYear(1)">
+                                        <ChevronRight class="w-4 h-4" />
+                                    </Button>
+                                </div>
+                                <a :href="route('admin.calendar.export-pdf', { year: year })" class="inline-flex">
+                                    <Button variant="outline" size="sm" class="flex items-center gap-2">
+                                        <Download class="w-4 h-4" />
+                                        Export PDF
+                                    </Button>
+                                </a>
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent class="overflow-x-auto">
                         <!-- Flash Message -->
                         <div v-if="showFlash && (flash.success || flash.error)" class="mb-4 rounded-lg px-4 py-3 text-sm flex items-center justify-between" :class="flash.success ? 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800' : 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'">
                             <span>{{ flash.success || flash.error }}</span>
                             <button @click="showFlash = false" class="ml-2 text-current opacity-60 hover:opacity-100">&times;</button>
+                        </div>
+
+                        <!-- Search -->
+                        <div class="mb-4 relative max-w-xs">
+                            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                                v-model="searchQuery"
+                                type="text"
+                                placeholder="Cari rumah atau pemilik..."
+                                class="pl-9 pr-8 h-9 text-sm"
+                            />
+                            <button v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                <X class="w-4 h-4" />
+                            </button>
                         </div>
 
                         <Table class="w-full text-center text-xs md:text-sm">
@@ -175,7 +238,7 @@ const confirmSendReminder = () => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                <TableRow v-for="row in calendar" :key="row.id">
+                                <TableRow v-for="row in filteredCalendar" :key="row.id">
                                     <TableCell class="text-left font-bold sticky left-0 bg-white dark:bg-slate-950 z-10 border-r shadow-sm">
                                         <div class="flex items-center justify-between gap-1">
                                             <div>
@@ -306,9 +369,18 @@ const confirmSendReminder = () => {
                             <span class="font-semibold">{{ reminderTarget.phone || '-' }}</span>
                         </div>
                     </div>
-                    <p class="text-xs text-muted-foreground">
-                        Pesan reminder berisi daftar tagihan yang belum lunas tahun {{ year }} akan dikirim via WhatsApp.
-                    </p>
+
+                    <!-- Message Preview -->
+                    <div class="space-y-1">
+                        <p class="text-xs font-semibold text-muted-foreground">Pesan yang akan dikirim:</p>
+                        <div class="rounded-lg border bg-green-50 dark:bg-green-950/30 p-3 max-h-60 overflow-y-auto">
+                            <div v-if="reminderPreviewLoading" class="flex items-center justify-center py-4">
+                                <Loader2 class="w-5 h-5 animate-spin text-muted-foreground" />
+                                <span class="ml-2 text-xs text-muted-foreground">Memuat preview...</span>
+                            </div>
+                            <pre v-else class="text-xs whitespace-pre-wrap font-sans leading-relaxed text-gray-700 dark:text-gray-300">{{ reminderMessage }}</pre>
+                        </div>
+                    </div>
                 </div>
 
                 <DialogFooter>

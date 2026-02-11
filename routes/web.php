@@ -27,8 +27,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
     Route::get('/admin/tagihan', [AdminController::class, 'tagihan'])->name('admin.tagihan');
     Route::get('/admin/calendar', [AdminController::class, 'calendar'])->name('admin.calendar');
+    Route::get('/admin/calendar/export-pdf', [AdminController::class, 'exportCalendarPdf'])->name('admin.calendar.export-pdf');
     Route::post('/admin/payment/{due}', [AdminController::class, 'storePayment'])->name('admin.payment.store');
     Route::patch('/admin/due/{due}', [AdminController::class, 'updateDue'])->name('admin.due.update');
+    Route::post('/admin/tagihan/bulk-update', [AdminController::class, 'bulkUpdateDues'])->name('admin.tagihan.bulk-update');
+    Route::get('/admin/reminder/{house}/preview', [AdminController::class, 'previewReminder'])->name('admin.reminder.preview');
     Route::post('/admin/reminder/{house}', [AdminController::class, 'sendReminder'])->name('admin.reminder.send');
 
     // Warga (Resident) Data Routes
