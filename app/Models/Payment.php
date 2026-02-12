@@ -19,6 +19,12 @@ class Payment extends Model
         'status',
         'proof_path',
         'verified_at',
+        'payment_date',
+    ];
+
+    protected $casts = [
+        'verified_at' => 'datetime',
+        'payment_date' => 'date',
     ];
 
     public function due()

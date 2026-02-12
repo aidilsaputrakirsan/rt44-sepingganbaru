@@ -10,6 +10,7 @@ use App\Models\House;
 use App\Models\Payment;
 use App\Services\FonnteService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
@@ -135,7 +136,9 @@ class AdminController extends Controller
                 'name' => $house->blok . '/' . $house->nomor,
                 'owner' => $house->owner ? $house->owner->name : '-',
                 'phone' => $house->owner ? $house->owner->phone_number : null,
-                'months' => []
+                'months' => [],
+                'total_unpaid' => 0,
+                'unpaid_months_count' => 0,
             ];
 
             for ($m = 1; $m <= 12; $m++) {
@@ -158,6 +161,15 @@ class AdminController extends Controller
                     'paid_amount' => $paidAmount,
                     'is_paid' => $monthDue ? ($monthDue->status === 'paid') : false,
                 ];
+
+                // Aggregate unpaid
+                if ($monthDue && $monthDue->status !== 'paid') {
+                    $unpaid = max(0, $monthDue->amount - $paidAmount);
+                    if ($unpaid > 0) {
+                        $data['total_unpaid'] += $unpaid;
+                        $data['unpaid_months_count']++;
+                    }
+                }
             }
             return $data;
         });
@@ -220,10 +232,12 @@ class AdminController extends Controller
     {
         $request->validate([
             'amount' => 'required|numeric|min:0',
+            'payment_date' => 'nullable|date|before_or_equal:today',
         ]);
 
         $house = $due->house;
         $amountPaid = $request->amount;
+        $paymentDate = $request->payment_date ?? now()->toDateString();
 
         // Jika 0, hapus payment manual dan kembalikan status due
         if ($amountPaid == 0) {
@@ -235,8 +249,7 @@ class AdminController extends Controller
             return back()->with('success', 'Pembayaran manual berhasil dihapus.');
         }
 
-        $statusHuni = $house->status_huni;
-        $wajibAmount = ($statusHuni === 'berpenghuni') ? 160000 : 110000;
+        $wajibAmount = $due->amount;
 
         $amountWajib = min($amountPaid, $wajibAmount);
         $amountSukarela = max(0, $amountPaid - $wajibAmount);
@@ -254,6 +267,7 @@ class AdminController extends Controller
                 'amount_sukarela' => $amountSukarela,
                 'status' => 'verified',
                 'verified_at' => now(),
+                'payment_date' => $paymentDate,
             ]
         );
 
@@ -266,6 +280,113 @@ class AdminController extends Controller
         }
 
         return back()->with('success', 'Data pembayaran berhasil diperbarui.');
+    }
+
+    public function storeLumpSumPayment(Request $request, House $house)
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:0',
+            'payment_date' => 'nullable|date|before_or_equal:today',
+            'year' => 'required|integer',
+            'due_ids' => 'required|array|min:1',
+            'due_ids.*' => 'integer|exists:dues,id',
+        ]);
+
+        $amountPaid = $request->amount;
+        $paymentDate = $request->payment_date ?? now()->toDateString();
+        $dueIds = $request->due_ids;
+
+        // Ambil dues yang dipilih, pastikan milik rumah ini, urut dari terlama
+        $selectedDues = Due::where('house_id', $house->id)
+            ->whereIn('id', $dueIds)
+            ->orderBy('period', 'asc')
+            ->get();
+
+        if ($selectedDues->isEmpty()) {
+            return back()->with('error', 'Tidak ada tagihan yang dipilih.');
+        }
+
+        // Jika 0, hapus manual payment untuk dues yang dipilih
+        if ($amountPaid == 0) {
+            Payment::whereIn('due_id', $selectedDues->pluck('id'))->where('method', 'manual')->delete();
+
+            foreach ($selectedDues as $due) {
+                $totalPaidWajib = $due->payments()->where('status', 'verified')->sum('amount_wajib');
+                $due->update(['status' => $totalPaidWajib >= $due->amount ? 'paid' : 'unpaid']);
+            }
+
+            return back()->with('success', 'Pembayaran manual untuk bulan yang dipilih berhasil dihapus.');
+        }
+
+        DB::beginTransaction();
+        try {
+            // Hapus manual payment lama untuk dues yang dipilih (reset, lalu alokasi ulang)
+            Payment::whereIn('due_id', $selectedDues->pluck('id'))->where('method', 'manual')->delete();
+
+            $remaining = $amountPaid;
+            $lastAllocatedDue = null;
+
+            foreach ($selectedDues as $due) {
+                $existingPaidWajib = $due->payments()
+                    ->where('status', 'verified')
+                    ->where('method', '!=', 'manual')
+                    ->sum('amount_wajib');
+                $dueRemaining = max(0, $due->amount - $existingPaidWajib);
+
+                if ($dueRemaining <= 0) {
+                    $due->update(['status' => 'paid']);
+                    continue;
+                }
+
+                if ($remaining <= 0) {
+                    $due->update(['status' => 'unpaid']);
+                    continue;
+                }
+
+                $allocate = min($remaining, $dueRemaining);
+                $remaining -= $allocate;
+
+                Payment::create([
+                    'due_id' => $due->id,
+                    'recorded_by' => auth()->id(),
+                    'payer_id' => $house->owner_id,
+                    'amount_paid' => $allocate,
+                    'amount_wajib' => $allocate,
+                    'amount_sukarela' => 0,
+                    'method' => 'manual',
+                    'status' => 'verified',
+                    'verified_at' => now(),
+                    'payment_date' => $paymentDate,
+                ]);
+
+                $lastAllocatedDue = $due;
+
+                $totalPaidWajib = $existingPaidWajib + $allocate;
+                $due->update(['status' => $totalPaidWajib >= $due->amount ? 'paid' : 'unpaid']);
+            }
+
+            // Sisa setelah semua due yang dipilih lunas → sukarela di due terakhir
+            if ($remaining > 0 && $lastAllocatedDue) {
+                $lastPayment = Payment::where('due_id', $lastAllocatedDue->id)
+                    ->where('method', 'manual')
+                    ->first();
+
+                if ($lastPayment) {
+                    $lastPayment->update([
+                        'amount_paid' => $lastPayment->amount_paid + $remaining,
+                        'amount_sukarela' => $remaining,
+                    ]);
+                }
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal menyimpan pembayaran: ' . $e->getMessage());
+        }
+
+        $count = $selectedDues->count();
+        return back()->with('success', "Pembayaran {$count} bulan berhasil dicatat untuk rumah {$house->blok}/{$house->nomor}.");
     }
 
     /**

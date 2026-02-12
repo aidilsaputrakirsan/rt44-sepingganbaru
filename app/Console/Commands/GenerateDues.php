@@ -25,33 +25,41 @@ class GenerateDues extends Command
      */
     public function handle()
     {
-        $period = \Carbon\Carbon::today()->startOfMonth();
-        $dueDate = $period->copy()->addDays(9); // 10th of the month
-
-        $this->info('Generating dues for period: ' . $period->format('Y-m-d'));
-
-        // Check if dues already generated
-        if (\App\Models\Due::where('period', $period->format('Y-m-d'))->exists()) {
-            $this->warn('Dues already generated for this period.');
-            return;
-        }
-
+        $year = \Carbon\Carbon::today()->year;
         $houses = \App\Models\House::all();
-        $count = 0;
+        $totalCreated = 0;
 
-        foreach ($houses as $house) {
-            $amount = \App\Services\DuesService::calculate($house);
-            
-            \App\Models\Due::create([
-                'house_id' => $house->id,
-                'period' => $period,
-                'amount' => $amount,
-                'status' => 'unpaid',
-                'due_date' => $dueDate,
-            ]);
-            $count++;
+        for ($m = 1; $m <= 12; $m++) {
+            $period = \Carbon\Carbon::createFromDate($year, $m, 1);
+            $dueDate = $period->copy()->addDays(9); // 10th of the month
+
+            // Skip if dues already generated for this period
+            if (\App\Models\Due::where('period', $period->format('Y-m-d'))->exists()) {
+                continue;
+            }
+
+            $count = 0;
+            foreach ($houses as $house) {
+                $amount = \App\Services\DuesService::calculate($house);
+
+                \App\Models\Due::create([
+                    'house_id' => $house->id,
+                    'period' => $period,
+                    'amount' => $amount,
+                    'status' => 'unpaid',
+                    'due_date' => $dueDate,
+                ]);
+                $count++;
+            }
+
+            $this->info("Generated {$count} dues for " . $period->format('F Y'));
+            $totalCreated += $count;
         }
 
-        $this->info("Successfully generated dues for {$count} houses.");
+        if ($totalCreated === 0) {
+            $this->info("All months for {$year} already generated.");
+        } else {
+            $this->info("Total: {$totalCreated} dues created.");
+        }
     }
 }

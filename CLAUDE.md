@@ -35,7 +35,7 @@ MonthlyBalance — saldo awal per bulan (standalone)
 | users | name, email, role (admin/warga), phone_number, no_rumah | |
 | houses | blok, nomor, status_huni (berpenghuni/kosong), resident_status (pemilik/kontrak), is_connected, meteran_count, owner_id | |
 | dues | house_id, period (YYYY-MM-01), amount, status (unpaid/paid/overdue), due_date | Tagihan bulanan |
-| payments | due_id, payer_id, recorded_by, amount_paid, amount_wajib, amount_sukarela, method (transfer/cash/manual), status (pending/verified/rejected), proof_path | |
+| payments | due_id, payer_id, recorded_by, amount_paid, amount_wajib, amount_sukarela, method (transfer/cash/manual), status (pending/verified/rejected), proof_path, payment_date | |
 | expenses | title, amount, category, date, proof_path | |
 | monthly_balances | period, initial_balance, notes | Saldo awal tiap bulan |
 
@@ -52,6 +52,8 @@ MonthlyBalance — saldo awal per bulan (standalone)
 - Status: `pending` → `verified` / `rejected`
 - Due status jadi `paid` jika total wajib terverifikasi >= amount tagihan
 - Input nominal **0** pada pembayaran manual = hapus payment manual & kembalikan status due
+- **Lump sum**: Admin bisa input pembayaran sekaligus untuk beberapa bulan, alokasi otomatis dari bulan terlama. Kelebihan masuk `amount_sukarela` di bulan terakhir
+- **payment_date**: Kolom tanggal pembayaran aktual (default hari ini, bisa diubah manual). Dipakai untuk laporan keuangan
 
 ## Controllers & Routes
 
@@ -63,6 +65,7 @@ MonthlyBalance — saldo awal per bulan (standalone)
 | PATCH /admin/due/{due} | AdminController@updateDue | Edit nominal tagihan |
 | GET /admin/calendar | AdminController@calendar | Kalender pembayaran semua rumah |
 | GET /admin/calendar/export-pdf | AdminController@exportCalendarPdf | Export kalender ke PDF (landscape) |
+| POST /admin/payment/house/{house} | AdminController@storeLumpSumPayment | Pembayaran lump sum per rumah |
 | POST /admin/payment/{due} | AdminController@storePayment | Input pembayaran manual (0 = hapus) |
 | POST /admin/tagihan/bulk-update | AdminController@bulkUpdateDues | Bulk update nominal per status huni |
 | GET /admin/reminder/{house}/preview | AdminController@previewReminder | Preview pesan WA reminder (JSON) |
@@ -153,3 +156,5 @@ resources/js/Pages/
 - **Reminder WA** mencakup semua bulan yang belum lunas s.d. bulan berjalan, cutoff tanggal 5 (jika hari ini >= tgl 5, bulan ini termasuk). Sisa tagihan = amount - verified payments
 - **Search** client-side di Calendar, Tagihan, dan Data Warga (computed filter, tanpa request ke server)
 - **Bulk update tagihan** mengubah nominal semua dues bulan ini sekaligus berdasarkan status_huni (berpenghuni/kosong)
+- **Lump sum payment** dari Calendar: modal per-house menampilkan rincian semua bulan belum lunas, alokasi otomatis dari bulan terlama. Hapus manual payments lama lalu re-create saat submit
+- **Laporan keuangan** mengelompokkan pemasukan berdasarkan `payment_date` (tanggal pembayaran aktual), bukan `due.period`

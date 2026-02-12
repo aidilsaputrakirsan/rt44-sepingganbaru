@@ -229,12 +229,11 @@ class RealDataSeeder extends Seeder
             ]);
         }
 
-        // 4. Generate tagihan untuk Jan s/d bulan sekarang
+        // 4. Generate tagihan untuk Jan s/d Desember (12 bulan penuh)
         $year = now()->year;
-        $currentMonth = now()->month;
         $houses = House::all();
 
-        for ($m = 1; $m <= $currentMonth; $m++) {
+        for ($m = 1; $m <= 12; $m++) {
             $period = Carbon::createFromDate($year, $m, 1);
             $dueDate = $period->copy()->addDays(9); // tanggal 10
 
@@ -252,7 +251,7 @@ class RealDataSeeder extends Seeder
         }
 
         // 5. Saldo awal per bulan
-        for ($m = 1; $m <= $currentMonth; $m++) {
+        for ($m = 1; $m <= 12; $m++) {
             $period = Carbon::createFromDate($year, $m, 1);
             \App\Models\MonthlyBalance::create([
                 'period' => $period->format('Y-m-d'),

@@ -33,6 +33,7 @@ class PaymentController extends Controller
             'method' => 'transfer',
             'status' => 'pending',
             'proof_path' => $path,
+            'payment_date' => now()->toDateString(),
         ]);
 
         return back()->with('success', 'Bukti pembayaran berhasil diupload. Menunggu verifikasi Bendahara.');

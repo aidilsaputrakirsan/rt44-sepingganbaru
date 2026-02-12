@@ -65,9 +65,10 @@ class FinancialReportController extends Controller
 
         $initialBalance = MonthlyBalance::where('period', $period->format('Y-m-d'))->first();
 
-        $incomeData = Payment::whereHas('due', function ($query) use ($period) {
-            $query->where('period', $period->format('Y-m-d'));
-        })->where('status', 'verified')->get();
+        $incomeData = Payment::where('status', 'verified')
+            ->whereYear('payment_date', $year)
+            ->whereMonth('payment_date', $month)
+            ->get();
 
         $totalWajib = $incomeData->sum('amount_wajib');
         $totalSukarela = $incomeData->sum('amount_sukarela');
