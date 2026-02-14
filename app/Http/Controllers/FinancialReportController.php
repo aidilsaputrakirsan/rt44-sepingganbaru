@@ -53,7 +53,7 @@ class FinancialReportController extends Controller
         $pdf = Pdf::loadView('reports.financial', $data);
         $filename = 'Laporan_Keuangan_RT44_' . str_replace(' ', '_', $data['report']['period_label']) . '.pdf';
 
-        return $pdf->download($filename);
+        return $pdf->stream($filename);
     }
 
     /**

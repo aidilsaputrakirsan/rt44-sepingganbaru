@@ -225,14 +225,16 @@ class AdminController extends Controller
             'year' => (int) $year,
         ])->setPaper('a4', 'landscape');
 
-        return $pdf->download("Kalender_Iuran_RT44_{$year}.pdf");
+        return $pdf->stream("Kalender_Iuran_RT44_{$year}.pdf");
     }
 
     public function storePayment(Request $request, Due $due)
     {
         $request->validate([
-            'amount' => 'required|numeric|min:0',
+            'amount' => 'required|numeric|min:0|max:99999999',
             'payment_date' => 'nullable|date|before_or_equal:today',
+        ], [
+            'amount.max' => 'Nominal tidak boleh melebihi Rp 99.999.999.',
         ]);
 
         $house = $due->house;
@@ -285,11 +287,13 @@ class AdminController extends Controller
     public function storeLumpSumPayment(Request $request, House $house)
     {
         $request->validate([
-            'amount' => 'required|numeric|min:0',
+            'amount' => 'required|numeric|min:0|max:99999999',
             'payment_date' => 'nullable|date|before_or_equal:today',
             'year' => 'required|integer',
             'due_ids' => 'required|array|min:1',
             'due_ids.*' => 'integer|exists:dues,id',
+        ], [
+            'amount.max' => 'Nominal tidak boleh melebihi Rp 99.999.999.',
         ]);
 
         $amountPaid = $request->amount;

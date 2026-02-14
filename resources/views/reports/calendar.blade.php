@@ -15,73 +15,112 @@
     <style>
         @page {
             size: landscape;
-            margin: 15mm 10mm;
+            margin: 22mm 10mm 10mm 10mm;
         }
 
         body {
             font-family: 'Helvetica', 'Arial', sans-serif;
-            color: #333;
+            color: #1e293b;
             font-size: 8px;
             margin: 0;
             padding: 0;
         }
 
+        /* === HEADER / KOP (fixed top every page) === */
         .header {
-            text-align: center;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #4f46e5;
-            padding-bottom: 8px;
+            position: fixed;
+            top: -14mm;
+            left: 0;
+            right: 0;
+            border-bottom: 3px solid #f59e0b;
+            padding-bottom: 6px;
         }
 
-        .header h1 {
-            color: #1e1b4b;
-            margin: 0;
-            font-size: 18px;
-            text-transform: uppercase;
-        }
-
-        .header p {
-            margin: 3px 0 0;
-            color: #64748b;
-            font-size: 11px;
-        }
-
-        table {
+        .header table {
             width: 100%;
             border-collapse: collapse;
         }
 
-        th {
-            background-color: #1e1b4b;
+        .header td {
+            vertical-align: middle;
+            border: none;
+            padding: 0;
+        }
+
+        .header-logo {
+            width: 45px;
+        }
+
+        .header-logo img {
+            width: 40px;
+            height: 40px;
+        }
+
+        .header-text {
+            padding-left: 8px;
+        }
+
+        .header-text h1 {
+            margin: 0;
+            font-size: 16px;
+            color: #0f172a;
+            letter-spacing: 0.5px;
+        }
+
+        .header-text h2 {
+            margin: 1px 0 0;
+            font-size: 9px;
+            color: #64748b;
+            font-weight: normal;
+        }
+
+        .header-year {
+            text-align: right;
+            font-size: 22px;
+            font-weight: bold;
+            color: #0f172a;
+        }
+
+        /* === TABLE === */
+        table.calendar {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table.calendar th {
+            background-color: #92400e;
             color: white;
-            padding: 6px 4px;
+            padding: 5px 3px;
             text-align: center;
-            font-size: 8px;
+            font-size: 7.5px;
             font-weight: bold;
             text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
 
-        th:first-child {
+        table.calendar th:first-child {
             text-align: left;
-            width: 70px;
+            padding-left: 6px;
+            width: 65px;
         }
 
-        td {
-            padding: 4px 3px;
+        table.calendar td {
+            padding: 3px 2px;
             border-bottom: 1px solid #e2e8f0;
             text-align: center;
             font-size: 7px;
         }
 
-        td:first-child {
+        table.calendar td:first-child {
             text-align: left;
             font-weight: bold;
-            font-size: 8px;
+            font-size: 7.5px;
             white-space: nowrap;
+            padding-left: 6px;
         }
 
-        tr:nth-child(even) {
-            background-color: #f8fafc;
+        table.calendar tr:nth-child(even) {
+            background-color: #fffbeb;
         }
 
         .paid {
@@ -104,45 +143,48 @@
             color: #d1d5db;
         }
 
+        /* === LEGEND === */
         .legend {
-            margin-top: 12px;
-            font-size: 8px;
+            margin-top: 10px;
+            font-size: 7.5px;
             color: #64748b;
         }
 
         .legend span {
             display: inline-block;
-            margin-right: 15px;
+            margin-right: 14px;
         }
 
         .legend-box {
             display: inline-block;
-            width: 10px;
-            height: 10px;
+            width: 9px;
+            height: 9px;
             margin-right: 3px;
             vertical-align: middle;
             border: 1px solid #e2e8f0;
         }
 
-        .footer {
-            position: fixed;
-            bottom: 0;
-            width: 100%;
-            text-align: center;
-            font-size: 8px;
-            color: #94a3b8;
-            padding: 5px 0;
-        }
     </style>
 </head>
 
 <body>
+    <!-- KOP -->
     <div class="header">
-        <h1>Kalender Iuran RT-44 Sepinggan Baru</h1>
-        <p>Tahun {{ $year }}</p>
+        <table>
+            <tr>
+                <td class="header-logo">
+                    <img src="{{ public_path('logort.png') }}" alt="Logo RT-44">
+                </td>
+                <td class="header-text">
+                    <h1>KALENDER IURAN RT-44</h1>
+                    <h2>Perumahan Sepinggan Baru &mdash; Gading City, Balikpapan</h2>
+                </td>
+                <td class="header-year">{{ $year }}</td>
+            </tr>
+        </table>
     </div>
 
-    <table>
+    <table class="calendar">
         <thead>
             <tr>
                 <th>Rumah</th>
@@ -188,9 +230,6 @@
         <span><span class="legend-box" style="background-color: #f3f4f6;"></span> Tidak Ada Tagihan</span>
     </div>
 
-    <div class="footer">
-        Dicetak otomatis oleh Sistem Manajemen RT-44 pada {{ \Carbon\Carbon::now()->translatedFormat('d F Y H:i') }}
-    </div>
 </body>
 
 </html>
