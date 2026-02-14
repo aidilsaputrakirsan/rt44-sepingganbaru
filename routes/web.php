@@ -51,6 +51,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Financial Report Routes
     Route::get('/admin/report', [\App\Http\Controllers\FinancialReportController::class, 'index'])->name('admin.report.index');
     Route::post('/admin/report/initial-balance', [\App\Http\Controllers\FinancialReportController::class, 'updateInitialBalance'])->name('admin.report.initial-balance');
+    Route::delete('/admin/report/initial-balance', [\App\Http\Controllers\FinancialReportController::class, 'deleteInitialBalance'])->name('admin.report.delete-initial-balance');
     Route::get('/admin/report/export-pdf', [\App\Http\Controllers\FinancialReportController::class, 'exportPdf'])->name('admin.report.export-pdf');
 });
 

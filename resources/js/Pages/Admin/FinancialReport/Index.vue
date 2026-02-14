@@ -7,8 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/Components/ui/dialog';
-import { TrendingUp, TrendingDown, Wallet, Calendar, Calculator, ArrowRight, Settings2, FileDown } from 'lucide-vue-next';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
+import { TrendingUp, TrendingDown, Wallet, Calendar, Calculator, ArrowRight, Settings2, FileDown, Link, Pencil, RotateCcw } from 'lucide-vue-next';
 
 const props = defineProps({
  report: Object,
@@ -21,6 +21,10 @@ const displayAmount = ref('');
 const balanceForm = useForm({
  period: props.report.period,
  amount: props.report.saldo_awal,
+});
+
+const deleteForm = useForm({
+ period: props.report.period,
 });
 
 const formatNumber = (num) => {
@@ -41,12 +45,24 @@ const handleAmountInput = (e) => {
 };
 
 const openModal = () => {
+ balanceForm.period = props.report.period;
+ balanceForm.amount = props.report.saldo_awal;
  displayAmount.value = formatNumber(props.report.saldo_awal);
  isModalOpen.value = true;
 };
 
 const submitBalance = () => {
  balanceForm.post(route('admin.report.initial-balance'), {
+ onSuccess: () => {
+ isModalOpen.value = false;
+ },
+ });
+};
+
+const resetToAuto = () => {
+ if (!confirm('Yakin ingin mengembalikan saldo awal ke mode otomatis?\nSaldo awal akan dihitung dari saldo akhir bulan sebelumnya.')) return;
+ deleteForm.period = props.report.period;
+ deleteForm.delete(route('admin.report.delete-initial-balance'), {
  onSuccess: () => {
  isModalOpen.value = false;
  },
@@ -87,9 +103,9 @@ const exportPdf = () => {
  <div class="flex items-center gap-4">
  <div class="flex items-center gap-2 bg-white border rounded-lg px-3 py-1.5 shadow-sm">
  <Calendar class="w-4 h-4 text-muted-foreground" />
- <input 
- type="month" 
- :value="report.period" 
+ <input
+ type="month"
+ :value="report.period"
  @change="changePeriod"
  class="border-none bg-transparent p-0 text-sm font-semibold focus:ring-0"
  />
@@ -100,7 +116,7 @@ const exportPdf = () => {
  </Button>
  <Button variant="outline" size="sm" @click="openModal">
  <Settings2 class="w-4 h-4 mr-2" />
- Set Saldo Awal
+ Saldo Awal
  </Button>
  </div>
  </div>
@@ -112,7 +128,15 @@ const exportPdf = () => {
  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
  <Card class="border-l-4 border-l-blue-500">
  <CardHeader class="pb-2">
- <CardDescription>Saldo Awal (Anchor)</CardDescription>
+ <CardDescription class="flex items-center gap-1.5">
+ Saldo Awal
+ <span v-if="report.is_manual_saldo" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 uppercase">
+ <Pencil class="w-2.5 h-2.5" /> Manual
+ </span>
+ <span v-else class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 uppercase">
+ <Link class="w-2.5 h-2.5" /> Otomatis
+ </span>
+ </CardDescription>
  <CardTitle class="text-xl font-bold">{{ formatCurrency(report.saldo_awal) }}</CardTitle>
  </CardHeader>
  </Card>
@@ -220,19 +244,19 @@ const exportPdf = () => {
  <p class="text-xs text-slate-400 uppercase font-bold tracking-widest">Saldo Awal</p>
  <p class="text-xl font-bold">{{ formatCurrency(report.saldo_awal) }}</p>
  </div>
- <Plus class="w-4 h-4 mx-auto text-slate-500" />
+ <p class="text-slate-500 text-center font-bold text-lg">+</p>
  <div class="space-y-1">
  <p class="text-xs text-slate-400 uppercase font-bold tracking-widest">Total Pemasukan</p>
  <p class="text-xl font-bold">{{ formatCurrency(report.total_income) }}</p>
  </div>
- <ArrowRight class="hidden md:block w-4 h-4 text-slate-500" />
+ <p class="text-slate-500 text-center font-bold text-lg">&minus;</p>
  <div class="space-y-1">
  <p class="text-xs text-slate-400 uppercase font-bold tracking-widest">Total Pengeluaran</p>
  <p class="text-xl font-bold text-red-400">{{ formatCurrency(report.total_expenses) }}</p>
  </div>
  <div class="md:col-start-1 md:col-end-6 pt-4 mt-4 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
  <p class="text-sm font-medium italic text-slate-400">
- * Saldo akhir akan otomatis menjadi saldo awal untuk periode bulan berikutnya (Januari -> Februari).
+ * Saldo akhir otomatis menjadi saldo awal bulan berikutnya, kecuali di-override manual.
  </p>
  <div class="text-right">
  <p class="text-xs text-slate-400 uppercase font-bold tracking-widest">Sisa Saldo Kas RT</p>
@@ -249,16 +273,35 @@ const exportPdf = () => {
  <DialogContent class="sm:max-w-md">
  <DialogHeader>
  <DialogTitle>Atur Saldo Awal Periode</DialogTitle>
+ <DialogDescription>{{ report.period_label }}</DialogDescription>
  </DialogHeader>
- 
- <form @submit.prevent="submitBalance" class="space-y-4 py-4">
- <div class="space-y-2">
- <Label>Periode Laporan</Label>
- <Input :value="report.period_label" disabled class="bg-muted" />
+
+ <div class="space-y-4 py-2">
+ <!-- Current Status Info -->
+ <div class="rounded-lg border p-3 space-y-1">
+ <div class="flex items-center justify-between">
+ <span class="text-sm text-muted-foreground">Status saat ini</span>
+ <span v-if="report.is_manual_saldo" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-700">
+ <Pencil class="w-3 h-3" /> Manual
+ </span>
+ <span v-else class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-700">
+ <Link class="w-3 h-3" /> Otomatis
+ </span>
+ </div>
+ <p class="text-xs text-muted-foreground">
+ <template v-if="report.is_manual_saldo">
+ Saldo awal diisi manual oleh admin.
+ </template>
+ <template v-else>
+ Saldo awal dihitung otomatis dari saldo akhir bulan sebelumnya.
+ </template>
+ </p>
  </div>
 
+ <!-- Override Form -->
+ <form @submit.prevent="submitBalance" class="space-y-3">
  <div class="space-y-2">
- <Label>Saldo Awal (Rp)</Label>
+ <Label class="text-sm font-semibold">Override Saldo Awal (Rp)</Label>
  <div class="relative">
  <span class="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">Rp</span>
  <Input
@@ -270,15 +313,28 @@ const exportPdf = () => {
  />
  </div>
  <p class="text-[11px] text-muted-foreground italic">
- * Saldo awal digunakan sebagai basis perhitungan kas untuk bulan ini.
+ Simpan untuk menggunakan nilai manual pada bulan ini.
  </p>
  </div>
 
- <DialogFooter class="pt-4">
- <Button type="button" variant="ghost" @click="isModalOpen = false">Batal</Button>
- <Button type="submit" :disabled="balanceForm.processing">Simpan Saldo Awal</Button>
- </DialogFooter>
+ <div class="flex items-center gap-2">
+ <Button type="submit" :disabled="balanceForm.processing" class="flex-1">
+ Simpan Manual
+ </Button>
+ <Button
+ v-if="report.is_manual_saldo"
+ type="button"
+ variant="outline"
+ @click="resetToAuto"
+ :disabled="deleteForm.processing"
+ class="flex-1"
+ >
+ <RotateCcw class="w-4 h-4 mr-1.5" />
+ Kembalikan Otomatis
+ </Button>
+ </div>
  </form>
+ </div>
  </DialogContent>
  </Dialog>
  </AuthenticatedLayout>
