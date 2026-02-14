@@ -8,6 +8,12 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
 class WargaController extends Controller
 {
@@ -31,7 +37,7 @@ class WargaController extends Controller
             'blok' => 'required|string',
             'nomor' => 'required|string',
             'status_huni' => 'required|in:berpenghuni,kosong',
-            'resident_status' => 'required|in:pemilik,kontrak',
+            'resident_status' => 'required|in:pemilik,kontrak,belum_diketahui',
             'name' => 'nullable|string|max:255',
             'email' => 'nullable|email|unique:users,email',
             'phone_number' => 'nullable|string',
@@ -40,7 +46,7 @@ class WargaController extends Controller
         DB::transaction(function () use ($validated) {
             $user = User::create([
                 'name' => $validated['name'] ?? 'Warga ' . $validated['blok'] . '/' . $validated['nomor'],
-                'email' => $validated['email'] ?? strtolower($validated['blok'] . $validated['nomor']) . '@rt44.com',
+                'email' => $validated['email'] ?? strtolower($validated['blok']) . '-' . strtolower($validated['nomor']) . '@rt44.com',
                 'password' => Hash::make('password'),
                 'role' => 'warga',
                 'phone_number' => $validated['phone_number'],
@@ -80,7 +86,7 @@ class WargaController extends Controller
     {
         $validated = $request->validate([
             'status_huni' => 'required|in:berpenghuni,kosong',
-            'resident_status' => 'required|in:pemilik,kontrak',
+            'resident_status' => 'required|in:pemilik,kontrak,belum_diketahui',
             'name' => 'nullable|string|max:255',
             'email' => 'nullable|email|unique:users,email,' . ($house->owner_id ?? 0),
             'phone_number' => 'nullable|string',
@@ -109,20 +115,31 @@ class WargaController extends Controller
             $house->resident_status = $validated['resident_status'];
             $house->save();
 
-            // Auto-update current month's bill amount based on status_huni
+            // Auto-update current & future months' bill amount based on new status_huni
+            // Only update dues that are still unpaid (paid dues keep their original amount)
             $currentPeriod = \Carbon\Carbon::now()->startOfMonth()->format('Y-m-d');
-            $due = \App\Models\Due::where('house_id', $house->id)
-                ->where('period', $currentPeriod)
-                ->first();
+            $newAmount = \App\Services\DuesService::calculate($house);
 
-            if ($due) {
-                // Determine Bill Amount: 160k for occupied, 110k for empty
-                $newAmount = ($house->status_huni === 'berpenghuni') ? 160000 : 110000;
-                $due->update(['amount' => $newAmount]);
-            }
+            \App\Models\Due::where('house_id', $house->id)
+                ->where('period', '>=', $currentPeriod)
+                ->whereIn('status', ['unpaid', 'overdue'])
+                ->update(['amount' => $newAmount]);
         });
 
         return back()->with('success', 'Data warga berhasil diperbarui.');
+    }
+
+    public function recalculateDues(House $house)
+    {
+        $newAmount = \App\Services\DuesService::calculate($house);
+        $currentPeriod = \Carbon\Carbon::now()->startOfMonth()->format('Y-m-d');
+
+        $updated = \App\Models\Due::where('house_id', $house->id)
+            ->where('period', '>=', $currentPeriod)
+            ->whereIn('status', ['unpaid', 'overdue'])
+            ->update(['amount' => $newAmount]);
+
+        return back()->with('success', "Berhasil recalculate {$updated} tagihan rumah {$house->blok}/{$house->nomor} menjadi Rp " . number_format($newAmount, 0, ',', '.'));
     }
 
     public function destroy(House $house)
@@ -133,39 +150,143 @@ class WargaController extends Controller
 
     public function import(Request $request)
     {
+        // 1. Validasi file upload
         $request->validate([
-            'file' => 'required|mimes:csv,txt,xlsx'
+            'file' => 'required|file|max:5120', // max 5MB
         ]);
 
         $file = $request->file('file');
-        $handle = fopen($file->getRealPath(), "r");
+        $extension = strtolower($file->getClientOriginalExtension());
+        $allowedExtensions = ['xlsx', 'xls'];
 
-        // Skip header
-        $header = fgetcsv($handle, 1000, ",");
+        if (!in_array($extension, $allowedExtensions)) {
+            return back()->withErrors([
+                'file' => 'Format file tidak didukung. Hanya file Excel (.xlsx, .xls) yang diperbolehkan. Anda mengupload file .' . $extension,
+            ]);
+        }
 
+        // 2. Coba baca file Excel
+        try {
+            $spreadsheet = IOFactory::load($file->getRealPath());
+        } catch (\Exception $e) {
+            return back()->withErrors([
+                'file' => 'File tidak bisa dibaca sebagai Excel. Pastikan file tidak corrupt dan formatnya benar (.xlsx/.xls).',
+            ]);
+        }
+
+        $sheet = $spreadsheet->getActiveSheet();
+        $highestRow = $sheet->getHighestRow();
+        $highestCol = $sheet->getHighestColumn();
+
+        // 3. Validasi minimal ada data (header + 1 baris)
+        if ($highestRow < 2) {
+            $spreadsheet->disconnectWorksheets();
+            return back()->withErrors([
+                'file' => 'File Excel kosong. Minimal harus ada 1 baris header dan 1 baris data.',
+            ]);
+        }
+
+        // 4. Validasi header — harus punya minimal 4 kolom
+        $colCount = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestCol);
+        if ($colCount < 4) {
+            $spreadsheet->disconnectWorksheets();
+            return back()->withErrors([
+                'file' => "File hanya memiliki $colCount kolom. Minimal dibutuhkan 4 kolom: Rumah, Nama, Kontak, Status Huni. Download template untuk format yang benar.",
+            ]);
+        }
+
+        // 5. Validasi nama header
+        $headerA = strtolower(trim($sheet->getCell('A1')->getValue() ?? ''));
+        $headerD = strtolower(trim($sheet->getCell('D1')->getValue() ?? ''));
+
+        $validHeaderA = in_array($headerA, ['rumah', 'no rumah', 'no_rumah', 'blok/nomor']);
+        $validHeaderD = in_array($headerD, ['status huni', 'status_huni', 'statushuni']);
+
+        if (!$validHeaderA || !$validHeaderD) {
+            $spreadsheet->disconnectWorksheets();
+            $headerActualA = $sheet->getCell('A1')->getValue() ?? '(kosong)';
+            $headerActualD = $sheet->getCell('D1')->getValue() ?? '(kosong)';
+            return back()->withErrors([
+                'file' => "Header kolom tidak sesuai template. Kolom A harus 'Rumah' (ditemukan: '$headerActualA'), Kolom D harus 'Status Huni' (ditemukan: '$headerActualD'). Download template untuk format yang benar.",
+            ]);
+        }
+
+        // 6. Proses baris per baris dengan validasi detail
+        $errors = [];
         $count = 0;
+        $validStatusHuni = ['berpenghuni', 'kosong'];
+        $validStatusWarga = ['pemilik', 'kontrak', 'belum diketahui', ''];
+        $hashedPassword = Hash::make('password'); // Hash sekali, pakai berulang
+
         DB::beginTransaction();
         try {
-            while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
-                // Example CSV: Blok, Nomor, Nama, Email, Phone, Status Huni (berpenghuni/kosong), Status Residen (pemilik/kontrak)
-                $blok = $data[0] ?? '';
-                $nomor = $data[1] ?? '';
-                $nama = $data[2] ?? '';
-                $email = $data[3] ?? '';
-                $phone = $data[4] ?? '';
-                $statusHuni = strtolower($data[5] ?? 'berpenghuni');
-                $statusResiden = strtolower($data[6] ?? 'pemilik');
+            for ($row = 2; $row <= $highestRow; $row++) {
+                $rumah = trim($sheet->getCell('A' . $row)->getValue() ?? '');
+                $nama = trim($sheet->getCell('B' . $row)->getValue() ?? '');
+                $kontak = trim($sheet->getCell('C' . $row)->getValue() ?? '');
+                $statusHuni = trim($sheet->getCell('D' . $row)->getValue() ?? '');
+                $statusWarga = trim($sheet->getCell('E' . $row)->getValue() ?? '');
 
-                if (empty($blok) || empty($nomor))
+                // Skip baris kosong total
+                if (empty($rumah) && empty($nama) && empty($statusHuni)) {
                     continue;
+                }
+
+                // Validasi kolom Rumah wajib diisi
+                if (empty($rumah)) {
+                    $errors[] = "Baris $row: Kolom 'Rumah' (A) kosong. Setiap baris harus memiliki nomor rumah (contoh: G1/2).";
+                    continue;
+                }
+
+                // Validasi format rumah harus mengandung "/"
+                if (!str_contains($rumah, '/')) {
+                    $errors[] = "Baris $row: Format rumah '$rumah' tidak valid. Harus mengandung tanda '/' (contoh: G1/2, H5/3).";
+                    continue;
+                }
+
+                // Parse blok & nomor
+                $parts = explode('/', $rumah, 2);
+                $blok = $parts[0];
+                $nomor = $parts[1] ?? '';
+
+                if (empty($blok) || empty($nomor)) {
+                    $errors[] = "Baris $row: Format rumah '$rumah' tidak lengkap. Blok dan nomor harus terisi (contoh: G1/2).";
+                    continue;
+                }
+
+                // Validasi Status Huni
+                $statusHuniLower = strtolower($statusHuni);
+                if (!empty($statusHuni) && !in_array($statusHuniLower, $validStatusHuni)) {
+                    $errors[] = "Baris $row ($rumah): Status Huni '$statusHuni' tidak valid. Gunakan 'Berpenghuni' atau 'Kosong'.";
+                    continue;
+                }
+
+                // Validasi Status Kepemilikan
+                $statusWargaLower = strtolower($statusWarga);
+                if (!empty($statusWarga) && !in_array($statusWargaLower, $validStatusWarga)) {
+                    $errors[] = "Baris $row ($rumah): Status Kepemilikan '$statusWarga' tidak valid. Gunakan 'Pemilik' atau 'Kontrak'.";
+                    continue;
+                }
+
+                // Default values
+                $statusHuniDb = $statusHuniLower === 'kosong' ? 'kosong' : 'berpenghuni';
+                $residentStatus = 'belum_diketahui';
+                if ($statusWargaLower === 'pemilik') {
+                    $residentStatus = 'pemilik';
+                } elseif ($statusWargaLower === 'kontrak') {
+                    $residentStatus = 'kontrak';
+                }
+
+                // Generate email dari blok+nomor
+                $email = strtolower($blok) . '-' . strtolower($nomor) . '@rt44.com';
 
                 $user = User::updateOrCreate(
-                    ['email' => $email ?: strtolower($blok . $nomor) . '@rt44.com'],
+                    ['email' => $email],
                     [
-                        'name' => $nama,
-                        'password' => $email ? Hash::make('password') : Hash::make('password'), // default
+                        'name' => !empty($nama) ? $nama : 'Warga ' . $rumah,
+                        'password' => $hashedPassword,
                         'role' => 'warga',
-                        'phone_number' => $phone,
+                        'phone_number' => !empty($kontak) ? $kontak : null,
                         'no_rumah' => "$blok/$nomor",
                     ]
                 );
@@ -173,48 +294,125 @@ class WargaController extends Controller
                 $house = House::updateOrCreate(
                     ['blok' => $blok, 'nomor' => $nomor],
                     [
-                        'status_huni' => $statusHuni,
-                        'resident_status' => $statusResiden,
+                        'status_huni' => $statusHuniDb,
+                        'resident_status' => $residentStatus,
                         'owner_id' => $user->id,
                     ]
                 );
 
-                // Ensure current month due exists
-                $currentPeriod = \Carbon\Carbon::now()->startOfMonth()->format('Y-m-d');
+                // Generate tagihan 12 bulan (Jan-Des) tahun ini
+                $year = now()->year;
                 $amount = ($house->status_huni === 'berpenghuni') ? 160000 : 110000;
 
-                \App\Models\Due::firstOrCreate(
-                    ['house_id' => $house->id, 'period' => $currentPeriod],
-                    ['amount' => $amount, 'status' => 'unpaid']
-                );
+                for ($m = 1; $m <= 12; $m++) {
+                    $period = \Carbon\Carbon::createFromDate($year, $m, 1);
+                    \App\Models\Due::firstOrCreate(
+                        ['house_id' => $house->id, 'period' => $period->format('Y-m-d')],
+                        [
+                            'amount' => $amount,
+                            'status' => 'unpaid',
+                            'due_date' => $period->copy()->addDays(9)->format('Y-m-d'),
+                        ]
+                    );
+                }
                 $count++;
             }
+
+            // Jika ada error per-baris, rollback & kirim error detail
+            if (!empty($errors)) {
+                DB::rollBack();
+                $spreadsheet->disconnectWorksheets();
+
+                // Batasi maks 10 error ditampilkan agar tidak kebanjiran
+                $totalErrors = count($errors);
+                $displayErrors = array_slice($errors, 0, 10);
+                $errorMessage = implode("\n", $displayErrors);
+                if ($totalErrors > 10) {
+                    $errorMessage .= "\n...dan " . ($totalErrors - 10) . " error lainnya.";
+                }
+
+                return back()->withErrors([
+                    'file' => "Ditemukan $totalErrors kesalahan dalam file. Perbaiki lalu upload ulang:\n" . $errorMessage,
+                ]);
+            }
+
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Gagal import data: ' . $e->getMessage());
+            $spreadsheet->disconnectWorksheets();
+            return back()->withErrors([
+                'file' => 'Gagal menyimpan data ke database. Kemungkinan ada data yang duplikat atau format tidak sesuai. Pastikan file Excel mengikuti template yang disediakan.',
+            ]);
         }
 
-        return back()->with('success', "$count data warga berhasil diimport.");
+        $spreadsheet->disconnectWorksheets();
+        return back()->with('success', "$count data warga berhasil diimport dari Excel.");
     }
 
     public function downloadTemplate()
     {
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="template_warga_rt44.csv"',
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Template Data Warga');
+
+        // Headers
+        $headers = ['Rumah', 'Pemilik / Penghuni', 'Kontak', 'Status Huni', 'Status Kepemilikan'];
+        foreach ($headers as $i => $header) {
+            $col = chr(65 + $i); // A, B, C, D, E
+            $sheet->setCellValue($col . '1', $header);
+        }
+
+        // Style header
+        $headerRange = 'A1:E1';
+        $sheet->getStyle($headerRange)->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+        ]);
+
+        // Example rows
+        $examples = [
+            ['G1/2', 'HANS KARTONO', '08123456789', 'Berpenghuni', 'Pemilik'],
+            ['G1/3', '', '', 'Kosong', ''],
+            ['G1/6', 'ABIYU', '', 'Berpenghuni', 'Kontrak'],
         ];
+        foreach ($examples as $i => $row) {
+            foreach ($row as $j => $value) {
+                $col = chr(65 + $j);
+                $sheet->setCellValue($col . ($i + 2), $value);
+            }
+        }
 
-        $columns = ['Blok', 'Nomor', 'Nama', 'Email', 'Phone', 'StatusHuni', 'StatusResiden'];
-        $example = ['G', '1', 'Budi Santoso', 'budi@example.com', '08123456789', 'berpenghuni', 'pemilik'];
+        // Style example rows
+        $sheet->getStyle('A2:E4')->applyFromArray([
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+        ]);
 
-        $callback = function () use ($columns, $example) {
-            $file = fopen('php://output', 'w');
-            fputcsv($file, $columns);
-            fputcsv($file, $example);
-            fclose($file);
-        };
+        // Info/petunjuk di baris ke-6
+        $sheet->setCellValue('A6', 'PETUNJUK:');
+        $sheet->getStyle('A6')->getFont()->setBold(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF0000'));
+        $sheet->setCellValue('A7', '- Kolom Rumah: format Blok/Nomor (contoh: G1/2, H5/3)');
+        $sheet->setCellValue('A8', '- Kolom Status Huni: isi "Berpenghuni" atau "Kosong"');
+        $sheet->setCellValue('A9', '- Kolom Status Kepemilikan: isi "Pemilik" atau "Kontrak" (kosongkan jika tidak diketahui)');
+        $sheet->setCellValue('A10', '- Kolom Nama & Kontak boleh dikosongkan');
+        $sheet->setCellValue('A11', '- Hapus baris contoh (baris 2-4) dan petunjuk ini sebelum upload');
 
-        return response()->stream($callback, 200, $headers);
+        // Auto-size columns
+        foreach (range('A', 'E') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        // Generate file
+        $fileName = 'template_data_warga_rt44.xlsx';
+        $tempPath = storage_path('app/' . $fileName);
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($tempPath);
+        $spreadsheet->disconnectWorksheets();
+
+        return response()->download($tempPath, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 }

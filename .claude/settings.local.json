@@ -3,7 +3,8 @@
     "allow": [
       "Bash(php artisan tinker:*)",
       "Bash(php:*)",
-      "Bash(del:*)"
+      "Bash(del:*)",
+      "Bash(npx vite build:*)"
     ]
   }
 }

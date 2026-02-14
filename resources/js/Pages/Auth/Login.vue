@@ -61,14 +61,14 @@ const submit = () => {
                     <form @submit.prevent="submit" class="space-y-4">
                         <!-- No Rumah -->
                         <div class="space-y-1.5">
-                            <Label for="no_rumah" class="text-sm font-medium text-slate-700">No. Rumah</Label>
+                            <Label for="no_rumah" class="text-sm font-medium text-slate-700">No. Rumah atau Email</Label>
                             <div class="relative">
                                 <Home class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                 <Input
                                     id="no_rumah"
                                     type="text"
                                     v-model="form.no_rumah"
-                                    placeholder="Contoh: G1/1"
+                                    placeholder="Contoh: G1/1 atau g1-1@rt44.com"
                                     class="pl-10 h-11"
                                     required
                                     autofocus

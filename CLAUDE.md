@@ -130,7 +130,7 @@ resources/js/Pages/
 ## Seeders
 - `RealDataSeeder` — Data real 142 rumah dari "Data Perumahan.xlsx" + generate tagihan Jan-sekarang
 - `DummyDataSeeder` — Data dummy lama (tidak aktif)
-- Data Excel: kolom Rumah, Pemilik/Penghuni, Kontak, Status Huni, Status Warga
+- Data Excel: kolom Rumah, Pemilik/Penghuni, Kontak, Status Huni, Status Kepemilikan
 
 ## PDF Export
 - Package: `barryvdh/laravel-dompdf`
@@ -151,7 +151,7 @@ resources/js/Pages/
 - Calendar view pakai grouping O(1) lookup: key `{house_id}-{month}`
 - WargaController@store otomatis buat 12 dues sekaligus saat tambah rumah baru
 - WargaController@update auto-adjust tagihan bulan berjalan jika status_huni berubah
-- Import CSV format: Blok, Nomor, Nama, Email, Phone, StatusHuni, StatusResiden
+- Import Excel format: Rumah, Pemilik/Penghuni, Kontak, Status Huni, Status Kepemilikan
 - **Natural sort** untuk urutan rumah: `REGEXP_SUBSTR(blok, '^[A-Za-z]+')` + `CAST(REGEXP_SUBSTR(blok, '[0-9]+') AS UNSIGNED)` — dipakai di semua query (calendar, tagihan, warga)
 - **Reminder WA** mencakup semua bulan yang belum lunas s.d. bulan berjalan, cutoff tanggal 5 (jika hari ini >= tgl 5, bulan ini termasuk). Sisa tagihan = amount - verified payments
 - **Search** client-side di Calendar, Tagihan, dan Data Warga (computed filter, tanpa request ke server)

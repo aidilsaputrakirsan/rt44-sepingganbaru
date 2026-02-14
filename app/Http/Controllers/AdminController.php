@@ -419,7 +419,7 @@ class AdminController extends Controller
         // Ambil semua tagihan belum lunas sampai bulan cutoff (dengan payments untuk hitung sisa)
         $unpaidDues = Due::with('payments')
             ->where('house_id', $house->id)
-            ->where('status', 'unpaid')
+            ->whereIn('status', ['unpaid', 'overdue'])
             ->whereYear('period', $year)
             ->where('period', '<=', $cutoffDate)
             ->orderBy('period', 'asc')

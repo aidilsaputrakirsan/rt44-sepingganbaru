@@ -39,6 +39,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/warga', [\App\Http\Controllers\WargaController::class, 'index'])->name('admin.warga.index');
     Route::post('/admin/warga', [\App\Http\Controllers\WargaController::class, 'store'])->name('admin.warga.store');
     Route::put('/admin/warga/{house}', [\App\Http\Controllers\WargaController::class, 'update'])->name('admin.warga.update');
+    Route::post('/admin/warga/{house}/recalculate', [\App\Http\Controllers\WargaController::class, 'recalculateDues'])->name('admin.warga.recalculate');
     Route::delete('/admin/warga/{house}', [\App\Http\Controllers\WargaController::class, 'destroy'])->name('admin.warga.destroy');
     Route::post('/admin/warga/import', [\App\Http\Controllers\WargaController::class, 'import'])->name('admin.warga.import');
     Route::get('/admin/warga/download-template', [\App\Http\Controllers\WargaController::class, 'downloadTemplate'])->name('admin.warga.template');
