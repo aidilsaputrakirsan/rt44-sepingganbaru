@@ -12,7 +12,7 @@ class DemoMode
     {
         $user = $request->user();
 
-        if ($user && $user->role === 'demo' && !$request->isMethod('GET')) {
+        if ($user && $user->role === 'demo' && !$request->isMethod('GET') && !$request->is('logout')) {
             if ($request->header('X-Inertia')) {
                 return back()->with('error', 'Mode demo: fitur ini dinonaktifkan.');
             }
