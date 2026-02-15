@@ -30,6 +30,17 @@ class RealDataSeeder extends Seeder
             ]
         );
 
+        // 1b. Ensure Demo user exists
+        User::firstOrCreate(
+            ['email' => 'demo@rt44.com'],
+            [
+                'name' => 'Demo User',
+                'password' => Hash::make('demo'),
+                'role' => 'demo',
+                'no_rumah' => 'DEMO',
+            ]
+        );
+
         // 2. Clear existing data
         Schema::disableForeignKeyConstraints();
         \App\Models\Payment::truncate();

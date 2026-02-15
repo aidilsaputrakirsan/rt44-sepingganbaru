@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Button } from '@/Components/ui/button';
@@ -14,6 +15,8 @@ import { Search, X, Settings2 } from 'lucide-vue-next';
 const props = defineProps({
  dues: Array,
 });
+
+const isDemo = computed(() => usePage().props.auth.is_demo);
 
 const searchQuery = ref('');
 const filteredDues = computed(() => {
@@ -144,7 +147,7 @@ const formatCurrency = (amount) => {
  </div>
 
  <!-- Bulk Update -->
- <div class="mb-5 rounded-lg border bg-slate-50 p-4">
+ <div v-if="!isDemo" class="mb-5 rounded-lg border bg-slate-50 p-4">
  <div class="flex items-center gap-2 mb-3">
  <Settings2 class="w-4 h-4 text-muted-foreground" />
  <span class="text-sm font-semibold">Atur Nominal Massal</span>
@@ -215,7 +218,8 @@ const formatCurrency = (amount) => {
  {{ formatCurrency(due.amount) }}
  </TableCell>
  <TableCell class="text-center">
- <Button 
+ <Button
+ v-if="!isDemo"
  variant="outline"
  size="sm"
  @click="openEditModal(due)"

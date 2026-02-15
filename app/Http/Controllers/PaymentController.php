@@ -46,7 +46,7 @@ class PaymentController extends Controller
         }
 
         // Ensure user owns this payment or is admin
-        if (auth()->user()->role !== 'admin' && auth()->id() !== $payment->payer_id && auth()->id() !== $payment->due->house->owner_id) {
+        if (!in_array(auth()->user()->role, ['admin', 'demo']) && auth()->id() !== $payment->payer_id && auth()->id() !== $payment->due->house->owner_id) {
             abort(403);
         }
 

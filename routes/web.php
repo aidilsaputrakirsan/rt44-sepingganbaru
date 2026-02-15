@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 use App\Http\Controllers\AdminController;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -61,5 +63,19 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+// Demo auto-login route
+Route::get('/demo', function () {
+    $demoUser = User::where('email', 'demo@rt44.com')->first();
+
+    if (!$demoUser) {
+        return redirect('/')->with('error', 'Akun demo belum tersedia.');
+    }
+
+    Auth::login($demoUser);
+    request()->session()->regenerate();
+
+    return redirect()->route('admin.dashboard');
+})->name('demo');
 
 require __DIR__ . '/auth.php';

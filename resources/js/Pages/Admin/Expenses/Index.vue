@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Button } from '@/Components/ui/button';
@@ -13,6 +13,8 @@ import { Plus, Trash2, Receipt } from 'lucide-vue-next';
 defineProps({
  expenses: Array,
 });
+
+const isDemo = computed(() => usePage().props.auth.is_demo);
 
 const isModalOpen = ref(false);
 const displayAmount = ref('');
@@ -75,7 +77,7 @@ const formatCurrency = (amount) => {
  <h2 class="text-xl font-semibold leading-tight text-gray-800">
  Catatan Pengeluaran Kas RT
  </h2>
- <Button @click="isModalOpen = true">
+ <Button v-if="!isDemo" @click="isModalOpen = true">
  <Plus class="w-4 h-4 mr-2" />
  Tambah Pengeluaran
  </Button>
@@ -99,7 +101,7 @@ const formatCurrency = (amount) => {
  <TableHead>Keterangan / Kegiatan</TableHead>
  <TableHead>Kategori</TableHead>
  <TableHead class="text-right">Nominal</TableHead>
- <TableHead class="text-center w-24">Action</TableHead>
+ <TableHead v-if="!isDemo" class="text-center w-24">Action</TableHead>
  </TableRow>
  </TableHeader>
  <TableBody>
@@ -116,7 +118,7 @@ const formatCurrency = (amount) => {
  <TableCell class="text-right font-bold text-red-600">
  {{ formatCurrency(expense.amount) }}
  </TableCell>
- <TableCell class="text-center">
+ <TableCell v-if="!isDemo" class="text-center">
  <Button variant="ghost" size="sm" @click="deleteExpense(expense.id)" class="text-destructive hover:text-destructive">
  <Trash2 class="w-4 h-4" />
  </Button>

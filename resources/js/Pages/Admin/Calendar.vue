@@ -15,6 +15,8 @@ const props = defineProps({
  year: Number,
 });
 
+const isDemo = computed(() => usePage().props.auth.is_demo);
+
 const months = [
  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -311,7 +313,8 @@ const confirmSendReminder = () => {
  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
  <div>
  <CardTitle>Matrix Pembayaran</CardTitle>
- <p class="text-sm text-muted-foreground mt-1">Klik pada kolom bulan untuk mencatat pembayaran manual.</p>
+ <p v-if="!isDemo" class="text-sm text-muted-foreground mt-1">Klik pada kolom bulan untuk mencatat pembayaran manual.</p>
+ <p v-else class="text-sm text-amber-600 mt-1 font-medium">Mode Demo — hanya melihat data, tidak bisa mengubah.</p>
  </div>
  <div class="flex items-center gap-3 shrink-0">
  <div class="flex items-center gap-2">
@@ -370,7 +373,7 @@ const confirmSendReminder = () => {
  </div>
  <div class="flex items-center gap-1">
  <button
- v-if="row.total_unpaid > 0"
+ v-if="row.total_unpaid > 0 && !isDemo"
  @click.stop="openLumpSumModal(row)"
  class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white transition-colors shadow-sm"
  title="Bayar Sekaligus"
@@ -378,7 +381,7 @@ const confirmSendReminder = () => {
  <Wallet class="w-3.5 h-3.5" />
  </button>
  <button
- v-if="hasUnpaid(row) && row.phone"
+ v-if="hasUnpaid(row) && row.phone && !isDemo"
  @click.stop="openReminderModal(row)"
  class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-green-500 hover:bg-green-600 text-white transition-colors shadow-sm"
  title="Kirim Reminder WA"
@@ -392,9 +395,9 @@ const confirmSendReminder = () => {
  </TableCell>
  <TableCell v-for="(data, m) in row.months" :key="m" class="p-1">
  <div 
- class="h-10 mx-auto flex flex-col items-center justify-center rounded-md cursor-pointer transition-all hover:brightness-95 text-[10px] sm:text-xs px-1"
- :class="getStatusColor(data)"
- @click="openPaymentModal(data, row.name, months[parseInt(m)-1])"
+ class="h-10 mx-auto flex flex-col items-center justify-center rounded-md transition-all text-[10px] sm:text-xs px-1"
+ :class="[getStatusColor(data), isDemo ? '' : 'cursor-pointer hover:brightness-95']"
+ @click="!isDemo && openPaymentModal(data, row.name, months[parseInt(m)-1])"
  :title="data.amount > 0 ? `Tagihan: ${formatCurrency(data.bill_amount)}` : 'No Bill'"
  >
  <template v-if="data.status !== 'none'">

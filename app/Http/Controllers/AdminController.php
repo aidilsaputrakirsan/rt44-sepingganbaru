@@ -16,7 +16,7 @@ class AdminController extends Controller
 {
     public function index()
     {
-        if (auth()->user()->role !== 'admin') {
+        if (!in_array(auth()->user()->role, ['admin', 'demo'])) {
             return redirect()->route('dashboard');
         }
 
@@ -33,7 +33,7 @@ class AdminController extends Controller
 
     public function tagihan()
     {
-        if (auth()->user()->role !== 'admin') {
+        if (!in_array(auth()->user()->role, ['admin', 'demo'])) {
             return redirect()->route('dashboard');
         }
 
@@ -108,7 +108,7 @@ class AdminController extends Controller
 
     public function calendar(Request $request)
     {
-        if (auth()->user()->role !== 'admin') {
+        if (!in_array(auth()->user()->role, ['admin', 'demo'])) {
             return redirect()->route('dashboard');
         }
 

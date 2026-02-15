@@ -12,7 +12,7 @@ class DashboardController extends Controller
         $user = auth()->user();
         
         // Safety check
-        if ($user->role === 'admin') {
+        if (in_array($user->role, ['admin', 'demo'])) {
             return redirect()->route('admin.dashboard');
         }
 

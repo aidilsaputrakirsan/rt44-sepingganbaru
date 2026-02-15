@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, useForm, router } from '@inertiajs/vue3';
+import { Head, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
@@ -14,6 +14,8 @@ const props = defineProps({
  report: Object,
  filters: Object,
 });
+
+const isDemo = computed(() => usePage().props.auth.is_demo);
 
 const isModalOpen = ref(false);
 const displayAmount = ref('');
@@ -114,7 +116,7 @@ const exportPdf = () => {
  <FileDown class="w-4 h-4 mr-2" />
  Ekspor PDF
  </Button>
- <Button variant="outline" size="sm" @click="openModal">
+ <Button v-if="!isDemo" variant="outline" size="sm" @click="openModal">
  <Settings2 class="w-4 h-4 mr-2" />
  Saldo Awal
  </Button>

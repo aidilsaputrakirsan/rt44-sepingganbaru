@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { 
  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
@@ -22,6 +22,8 @@ import {
 const props = defineProps({
  houses: Array,
 });
+
+const isDemo = computed(() => usePage().props.auth.is_demo);
 
 const searchQuery = ref('');
 const filteredHouses = computed(() => {
@@ -145,7 +147,7 @@ const getResidentStatusVariant = (status) => {
  </p>
  </div>
 
- <div class="flex items-center gap-3">
+ <div v-if="!isDemo" class="flex items-center gap-3">
  <Button variant="outline" @click="isImportModalOpen = true" class="flex items-center gap-2 shadow-sm border-slate-200">
  <FileSpreadsheet class="w-4 h-4" />
  Import Excel
@@ -199,7 +201,7 @@ const getResidentStatusVariant = (status) => {
  <TableHead>Kontak</TableHead>
  <TableHead class="text-center">Status Huni</TableHead>
  <TableHead class="text-center">Status Kepemilikan</TableHead>
- <TableHead class="text-right">Action</TableHead>
+ <TableHead v-if="!isDemo" class="text-right">Action</TableHead>
  </TableRow>
  </TableHeader>
  <TableBody>
@@ -234,7 +236,7 @@ const getResidentStatusVariant = (status) => {
  {{ getResidentStatusLabel(house.resident_status) }}
  </Badge>
  </TableCell>
- <TableCell class="text-right">
+ <TableCell v-if="!isDemo" class="text-right">
  <div class="flex items-center justify-end gap-1">
  <Button
  variant="ghost"
