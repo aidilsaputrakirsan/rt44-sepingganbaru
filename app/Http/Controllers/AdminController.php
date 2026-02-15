@@ -8,26 +8,81 @@ use Carbon\Carbon;
 use App\Models\Due;
 use App\Models\House;
 use App\Models\Payment;
+use App\Models\Expense;
+use App\Models\MonthlyBalance;
 use App\Services\FonnteService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
-    public function index()
+    private function censorName(?string $name): string
+    {
+        if (!$name) return '-';
+        return preg_replace_callback('/\b(\w)(\w+)\b/u', function ($m) {
+            return $m[1] . str_repeat('*', mb_strlen($m[2]));
+        }, $name);
+    }
+    public function index(Request $request)
     {
         if (!in_array(auth()->user()->role, ['admin', 'demo'])) {
             return redirect()->route('dashboard');
         }
 
-        // Empty dashboard for now as requested
+        $year = (int) $request->input('year', now()->year);
+        $month = (int) $request->input('month', now()->month);
+        $period = Carbon::createFromDate($year, $month, 1);
+
+        // 1. Rumah yang belum lunas pada bulan tertentu
+        $dues = Due::with(['house.owner', 'payments'])
+            ->where('period', $period->format('Y-m-d'))
+            ->whereIn('status', ['unpaid', 'overdue'])
+            ->join('houses', 'dues.house_id', '=', 'houses.id')
+            ->orderByRaw("REGEXP_SUBSTR(houses.blok, '^[A-Za-z]+') ASC")
+            ->orderByRaw("CAST(REGEXP_SUBSTR(houses.blok, '[0-9]+') AS UNSIGNED) ASC")
+            ->orderByRaw('CAST(houses.nomor AS UNSIGNED) ASC')
+            ->select('dues.*')
+            ->get();
+
+        $unpaidHouses = $dues->map(function ($due) {
+            $paidWajib = $due->payments->where('status', 'verified')->sum('amount_wajib');
+            $remaining = max(0, $due->amount - $paidWajib);
+            if ($remaining <= 0) return null;
+
+            return [
+                'name' => $due->house->blok . '/' . $due->house->nomor,
+                'remaining' => $remaining,
+            ];
+        })->filter()->values();
+
+        // 2. Saldo akhir per bulan (Jan–Des tahun terpilih)
+        $saldoPerBulan = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $p = Carbon::createFromDate($year, $m, 1);
+
+            $manualBalance = MonthlyBalance::where('period', $p->format('Y-m-d'))->first();
+            $saldoAwal = $manualBalance
+                ? (float) $manualBalance->initial_balance
+                : ($m === 1 ? 0 : ($saldoPerBulan[$m - 1] ?? 0));
+
+            $income = Payment::where('status', 'verified')
+                ->whereYear('payment_date', $year)
+                ->whereMonth('payment_date', $m)
+                ->selectRaw('COALESCE(SUM(amount_wajib), 0) + COALESCE(SUM(amount_sukarela), 0) as total')
+                ->value('total') ?? 0;
+
+            $expenses = Expense::whereYear('date', $year)
+                ->whereMonth('date', $m)
+                ->sum('amount') ?? 0;
+
+            $saldoPerBulan[$m] = (float) ($saldoAwal + $income - $expenses);
+        }
+
         return Inertia::render('Admin/Dashboard', [
-            'stats' => [
-                'pending' => 0,
-                'collected' => 0,
-                'unpaid' => 0,
-            ],
-            'dues' => [],
+            'unpaidHouses' => $unpaidHouses,
+            'saldoPerBulan' => array_values($saldoPerBulan),
+            'year' => $year,
+            'month' => $month,
         ]);
     }
 
@@ -50,10 +105,12 @@ class AdminController extends Controller
             ->select('dues.*')
             ->get()
             ->map(function ($due) {
+                $isDemo = auth()->user()->role === 'demo';
+                $ownerName = $due->house->owner ? $due->house->owner->name : 'No Owner';
                 return [
                     'id' => $due->id,
                     'house' => $due->house->blok . '/' . $due->house->nomor,
-                    'owner' => $due->house->owner ? $due->house->owner->name : 'No Owner',
+                    'owner' => $isDemo ? $this->censorName($ownerName) : $ownerName,
                     'amount' => $due->amount,
                     'status' => $due->status,
                 ];
@@ -130,11 +187,13 @@ class AdminController extends Controller
             return $d->house_id . '-' . Carbon::parse($d->period)->month;
         });
 
-        $calendar = $houses->map(function ($house) use ($duesGrouped) {
+        $isDemo = auth()->user()->role === 'demo';
+        $calendar = $houses->map(function ($house) use ($duesGrouped, $isDemo) {
+            $ownerName = $house->owner ? $house->owner->name : '-';
             $data = [
                 'id' => $house->id,
                 'name' => $house->blok . '/' . $house->nomor,
-                'owner' => $house->owner ? $house->owner->name : '-',
+                'owner' => $isDemo ? $this->censorName($ownerName) : $ownerName,
                 'phone' => $house->owner ? $house->owner->phone_number : null,
                 'months' => [],
                 'total_unpaid' => 0,

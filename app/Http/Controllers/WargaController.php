@@ -26,9 +26,45 @@ class WargaController extends Controller
             ->orderBy('nomor')
             ->get();
 
+        if (auth()->user()->role === 'demo') {
+            $houses->each(function ($house) {
+                if ($house->owner) {
+                    $house->owner->name = $this->censorName($house->owner->name);
+                    $house->owner->email = $this->censorEmail($house->owner->email);
+                    $house->owner->phone_number = $this->censorPhone($house->owner->phone_number);
+                }
+            });
+        }
+
         return Inertia::render('Admin/Warga/Index', [
             'houses' => $houses
         ]);
+    }
+
+    private function censorName(?string $name): string
+    {
+        if (!$name) return '-';
+        return preg_replace_callback('/\b(\w)(\w+)\b/u', function ($m) {
+            return $m[1] . str_repeat('*', mb_strlen($m[2]));
+        }, $name);
+    }
+
+    private function censorEmail(?string $email): string
+    {
+        if (!$email) return '-';
+        $parts = explode('@', $email);
+        $local = $parts[0];
+        $domain = $parts[1] ?? 'rt44.com';
+        $visible = mb_substr($local, 0, 2);
+        return $visible . str_repeat('*', max(3, mb_strlen($local) - 2)) . '@' . $domain;
+    }
+
+    private function censorPhone(?string $phone): ?string
+    {
+        if (!$phone) return null;
+        $len = strlen($phone);
+        if ($len <= 4) return str_repeat('*', $len);
+        return substr($phone, 0, 4) . str_repeat('*', $len - 4);
     }
 
     public function store(Request $request)
