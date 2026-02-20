@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { ref, computed, watch } from 'vue';
+import { Head, useForm, usePage, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { 
  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
@@ -16,7 +16,7 @@ import {
  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/Components/ui/select';
 import {
- Users, Plus, Trash2, Edit2, Upload, FileText, CheckCircle2, AlertCircle, Search, X, FileSpreadsheet, RefreshCw
+ Users, Plus, Trash2, Edit2, Upload, FileText, AlertCircle, Search, X, FileSpreadsheet
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -38,7 +38,16 @@ const filteredHouses = computed(() => {
 const isAddModalOpen = ref(false);
 const isEditModalOpen = ref(false);
 const isImportModalOpen = ref(false);
+const isDeleteModalOpen = ref(false);
 const selectedHouse = ref(null);
+const houseToDelete = ref(null);
+
+const generateEmail = (blok, nomor) => {
+ if (!blok) return '';
+ const b = blok.toLowerCase();
+ const n = (nomor || '').toLowerCase();
+ return n ? `${b}-${n}@rt44.com` : `${b}@rt44.com`;
+};
 
 const form = useForm({
  blok: '',
@@ -48,6 +57,11 @@ const form = useForm({
  name: '',
  email: '',
  phone_number: '',
+});
+
+// Auto-generate email saat blok/nomor berubah di form Tambah
+watch(() => [form.blok, form.nomor], ([blok, nomor]) => {
+ form.email = generateEmail(blok, nomor);
 });
 
 const editForm = useForm({
@@ -67,12 +81,17 @@ const openAddModal = () => {
  isAddModalOpen.value = true;
 };
 
+const editEmailGenerated = computed(() => {
+ if (!selectedHouse.value) return '';
+ return generateEmail(selectedHouse.value.blok, selectedHouse.value.nomor);
+});
+
 const openEditModal = (house) => {
  selectedHouse.value = house;
  editForm.status_huni = house.status_huni;
  editForm.resident_status = house.resident_status || 'belum_diketahui';
  editForm.name = house.owner ? house.owner.name : '';
- editForm.email = house.owner ? house.owner.email : '';
+ editForm.email = house.owner ? house.owner.email : generateEmail(house.blok, house.nomor);
  editForm.phone_number = house.owner ? house.owner.phone_number : '';
  isEditModalOpen.value = true;
 };
@@ -94,18 +113,22 @@ const submitUpdate = () => {
  });
 };
 
-const recalculateForm = useForm({});
-
-const recalculateDues = (house) => {
- if (confirm(`Recalculate tagihan rumah ${house.blok}/${house.nomor}?\nTagihan bulan ini & mendatang yang belum lunas akan disesuaikan dengan status huni saat ini.`)) {
- recalculateForm.post(route('admin.warga.recalculate', house.id));
- }
+const deleteHouse = (house) => {
+ if (isDemo.value) return;
+ houseToDelete.value = house;
+ isDeleteModalOpen.value = true;
 };
 
-const deleteHouse = (id) => {
- if (confirm('Apakah Anda yakin ingin menghapus data rumah ini?')) {
- useForm({}).delete(route('admin.warga.destroy', id));
- }
+const confirmDelete = () => {
+ if (!houseToDelete.value) return;
+ 
+ router.delete(route('admin.warga.destroy', houseToDelete.value.id), {
+   preserveScroll: true,
+   onSuccess: () => {
+     isDeleteModalOpen.value = false;
+     houseToDelete.value = null;
+   },
+ });
 };
 
 const handleImport = () => {
@@ -162,20 +185,6 @@ const getResidentStatusVariant = (status) => {
 
  <div class="py-12">
  <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
- <!-- Info Section -->
- <div class="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-start gap-4">
- <div class="bg-blue-100 p-2 rounded-lg text-blue-600">
- <CheckCircle2 class="w-5 h-5" />
- </div>
- <div>
- <h4 class="font-bold text-blue-900">Tips Kelola Data</h4>
- <p class="text-sm text-blue-700 mt-1">
- Mengubah status huni akan otomatis menyesuaikan tagihan bulan ini & mendatang yang belum lunas.
- Gunakan tombol <span class="inline-flex items-center"><RefreshCw class="w-3 h-3 mx-0.5" /></span> untuk recalculate manual jika diperlukan.
- </p>
- </div>
- </div>
-
  <!-- Data Table -->
  <div class="bg-white overflow-hidden shadow-xl sm:rounded-2xl border border-slate-200">
  <div class="p-6">
@@ -201,11 +210,11 @@ const getResidentStatusVariant = (status) => {
  <TableHead>Kontak</TableHead>
  <TableHead class="text-center">Status Huni</TableHead>
  <TableHead class="text-center">Status Kepemilikan</TableHead>
- <TableHead v-if="!isDemo" class="text-right">Action</TableHead>
+ <TableHead v-if="!isDemo" class="text-center">Aksi</TableHead>
  </TableRow>
  </TableHeader>
  <TableBody>
- <TableRow v-for="house in filteredHouses" :key="house.id" class="border-slate-100">
+ <TableRow v-for="house in filteredHouses" :key="house.id" class="border-slate-100 cursor-pointer hover:bg-slate-50/50 transition-colors" @click="!isDemo && openEditModal(house)">
  <TableCell class="font-bold text-indigo-600 py-4">
  {{ house.blok }}/{{ house.nomor }}
  </TableCell>
@@ -236,35 +245,24 @@ const getResidentStatusVariant = (status) => {
  {{ getResidentStatusLabel(house.resident_status) }}
  </Badge>
  </TableCell>
- <TableCell v-if="!isDemo" class="text-right">
- <div class="flex items-center justify-end gap-1">
+ <TableCell v-if="!isDemo" class="text-center">
+ <div class="flex items-center justify-center gap-1">
  <Button
  variant="ghost"
  size="icon"
  class="h-8 w-8 text-slate-500 hover:text-indigo-600"
- @click="openEditModal(house)"
+ @click.stop="openEditModal(house)"
  title="Edit data warga"
  >
  <Edit2 class="w-4 h-4" />
  </Button>
- <Button
- variant="ghost"
- size="icon"
- class="h-8 w-8 text-slate-500 hover:text-amber-600"
- @click="recalculateDues(house)"
- :disabled="recalculateForm.processing"
- title="Recalculate tagihan berdasarkan status huni saat ini"
- >
- <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': recalculateForm.processing }" />
- </Button>
- <Button
- variant="ghost"
- size="icon"
- class="h-8 w-8 text-slate-500 hover:text-red-600"
- @click="deleteHouse(house.id)"
+ <button
+ class="h-8 w-8 text-slate-500 hover:text-red-600 flex items-center justify-center rounded-md hover:bg-slate-100 transition-colors"
+ @click.stop="deleteHouse(house)"
+ title="Hapus data rumah"
  >
  <Trash2 class="w-4 h-4" />
- </Button>
+ </button>
  </div>
  </TableCell>
  </TableRow>
@@ -339,7 +337,8 @@ const getResidentStatusVariant = (status) => {
  </div>
  <div class="grid gap-2">
  <Label for="email">Email (Username)</Label>
- <Input id="email" v-model="form.email" type="email" placeholder="email@rt44.com" />
+ <Input id="email" v-model="form.email" type="email" readonly class="bg-slate-50 cursor-not-allowed" />
+ <p class="text-xs text-slate-500">Otomatis: <span class="font-mono font-semibold text-indigo-600">{{ form.email || 'blok-nomor@rt44.com' }}</span></p>
  </div>
  <div class="grid gap-2">
  <Label for="phone">Nomor HP</Label>
@@ -394,6 +393,9 @@ const getResidentStatusVariant = (status) => {
  </Select>
  </div>
  </div>
+ <p class="text-xs text-amber-600 flex items-center gap-1">
+ ⚡ Mengubah status huni otomatis menyesuaikan tagihan yang belum lunas.
+ </p>
 
  <div class="border-t pt-4 mt-2">
  <p class="text-sm font-bold text-slate-900 mb-4">Informasi Penghuni / Pemilik</p>
@@ -404,7 +406,8 @@ const getResidentStatusVariant = (status) => {
  </div>
  <div class="grid gap-2">
  <Label for="edit_email">Email (Username)</Label>
- <Input id="edit_email" v-model="editForm.email" type="email" />
+ <Input id="edit_email" v-model="editForm.email" type="email" readonly class="bg-slate-50 cursor-not-allowed" />
+ <p class="text-xs text-slate-500">Format: <span class="font-mono font-semibold text-indigo-600">{{ editEmailGenerated }}</span></p>
  </div>
  <div class="grid gap-2">
  <Label for="edit_phone">Nomor HP</Label>
@@ -478,6 +481,28 @@ const getResidentStatusVariant = (status) => {
  >
  <Upload class="w-4 h-4 mr-2" />
  Mulai Import
+ </Button>
+ </DialogFooter>
+ </DialogContent>
+ </Dialog>
+
+ <!-- Delete Confirmation Modal -->
+ <Dialog v-model:open="isDeleteModalOpen">
+ <DialogContent class="sm:max-w-[400px]">
+ <DialogHeader>
+ <DialogTitle class="flex items-center gap-2 text-red-600">
+ <AlertCircle class="w-5 h-5" />
+ Konfirmasi Hapus
+ </DialogTitle>
+ <DialogDescription class="pt-2 text-slate-600">
+ Apakah Anda yakin ingin menghapus data rumah <strong>{{ houseToDelete?.blok }}/{{ houseToDelete?.nomor }}</strong>?
+ <p class="mt-2 text-xs text-red-500 font-medium">Aksi ini menghapus seluruh riwayat tagihan & tidak dapat dibatalkan.</p>
+ </DialogDescription>
+ </DialogHeader>
+ <DialogFooter class="gap-2 sm:gap-0">
+ <Button variant="outline" @click="isDeleteModalOpen = false" class="border-slate-200">Batal</Button>
+ <Button @click="confirmDelete" class="bg-red-600 hover:bg-red-700 text-white shadow-md">
+ Ya, Hapus Data
  </Button>
  </DialogFooter>
  </DialogContent>

@@ -189,6 +189,35 @@ const unpaidChartHeight = computed(() => {
   <div class="py-12">
    <div class="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-6">
 
+    <!-- Chart 2: Saldo Kas -->
+    <Card>
+     <CardHeader>
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+       <div>
+        <CardTitle class="flex items-center gap-2">
+         <Wallet class="w-5 h-5 text-emerald-500" />
+         Saldo Kas RT per Bulan
+        </CardTitle>
+        <CardDescription class="mt-1">Tren saldo akhir kas RT sepanjang tahun</CardDescription>
+       </div>
+       <div class="flex items-center gap-2 shrink-0">
+        <Button variant="outline" size="icon" class="h-8 w-8" @click="changeYear(-1)">
+         <ChevronLeft class="w-4 h-4" />
+        </Button>
+        <span class="text-lg font-bold min-w-[60px] text-center">{{ year }}</span>
+        <Button variant="outline" size="icon" class="h-8 w-8" @click="changeYear(1)">
+         <ChevronRight class="w-4 h-4" />
+        </Button>
+       </div>
+      </div>
+     </CardHeader>
+     <CardContent>
+      <div style="height: 320px">
+       <Line :data="saldoChartData" :options="saldoChartOptions" />
+      </div>
+     </CardContent>
+    </Card>
+
     <!-- Summary Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
      <Card class="border-l-4 border-l-red-500">
@@ -255,34 +284,7 @@ const unpaidChartHeight = computed(() => {
      </CardContent>
     </Card>
 
-    <!-- Chart 2: Saldo Kas -->
-    <Card>
-     <CardHeader>
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-       <div>
-        <CardTitle class="flex items-center gap-2">
-         <Wallet class="w-5 h-5 text-emerald-500" />
-         Saldo Kas RT per Bulan
-        </CardTitle>
-        <CardDescription class="mt-1">Tren saldo akhir kas RT sepanjang tahun</CardDescription>
-       </div>
-       <div class="flex items-center gap-2 shrink-0">
-        <Button variant="outline" size="icon" class="h-8 w-8" @click="changeYear(-1)">
-         <ChevronLeft class="w-4 h-4" />
-        </Button>
-        <span class="text-lg font-bold min-w-[60px] text-center">{{ year }}</span>
-        <Button variant="outline" size="icon" class="h-8 w-8" @click="changeYear(1)">
-         <ChevronRight class="w-4 h-4" />
-        </Button>
-       </div>
-      </div>
-     </CardHeader>
-     <CardContent>
-      <div style="height: 320px">
-       <Line :data="saldoChartData" :options="saldoChartOptions" />
-      </div>
-     </CardContent>
-    </Card>
+    
 
    </div>
   </div>
