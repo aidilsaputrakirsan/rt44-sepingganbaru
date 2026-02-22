@@ -48,7 +48,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Expense Routes
     Route::get('/admin/expenses', [\App\Http\Controllers\ExpenseController::class, 'index'])->name('admin.expenses.index');
+    Route::post('/admin/expenses/clone', [\App\Http\Controllers\ExpenseController::class, 'clone'])->name('admin.expenses.clone');
     Route::post('/admin/expenses', [\App\Http\Controllers\ExpenseController::class, 'store'])->name('admin.expenses.store');
+    Route::put('/admin/expenses/{expense}', [\App\Http\Controllers\ExpenseController::class, 'update'])->name('admin.expenses.update');
     Route::delete('/admin/expenses/{expense}', [\App\Http\Controllers\ExpenseController::class, 'destroy'])->name('admin.expenses.destroy');
 
     // Financial Report Routes
