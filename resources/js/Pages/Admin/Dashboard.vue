@@ -8,7 +8,6 @@ import {
  Chart as ChartJS,
  CategoryScale,
  LinearScale,
- BarElement,
  PointElement,
  LineElement,
  Title,
@@ -20,7 +19,7 @@ import { computed } from 'vue';
 import { ChevronLeft, ChevronRight, AlertTriangle, Wallet } from 'lucide-vue-next';
 
 ChartJS.register(
- CategoryScale, LinearScale, BarElement, PointElement, LineElement,
+ CategoryScale, LinearScale, PointElement, LineElement,
  Title, Tooltip, Legend, Filler
 );
 
@@ -66,53 +65,7 @@ const formatCompact = (amount) => {
  return amount.toString();
 };
 
-// --- Chart 1: Tunggakan per rumah (Horizontal Bar) ---
-const unpaidChartData = computed(() => ({
- labels: props.unpaidHouses.map(h => h.name),
- datasets: [{
-  label: 'Sisa Tunggakan',
-  data: props.unpaidHouses.map(h => h.remaining),
-  backgroundColor: props.unpaidHouses.map((_, i) => {
-   const colors = ['#ef4444', '#f97316', '#eab308', '#f43f5e', '#e11d48', '#dc2626', '#ea580c', '#d97706'];
-   return colors[i % colors.length] + '90';
-  }),
-  borderColor: props.unpaidHouses.map((_, i) => {
-   const colors = ['#ef4444', '#f97316', '#eab308', '#f43f5e', '#e11d48', '#dc2626', '#ea580c', '#d97706'];
-   return colors[i % colors.length];
-  }),
-  borderWidth: 1,
-  borderRadius: 4,
- }],
-}));
-
-const unpaidChartOptions = computed(() => ({
- indexAxis: 'y',
- responsive: true,
- maintainAspectRatio: false,
- plugins: {
-  legend: { display: false },
-  tooltip: {
-   callbacks: {
-    label: (ctx) => formatCurrency(ctx.raw),
-   },
-  },
- },
- scales: {
-  x: {
-   ticks: {
-    callback: (value) => formatCompact(value),
-    font: { size: 11 },
-   },
-   grid: { color: '#f1f5f9' },
-  },
-  y: {
-   ticks: {
-    font: { size: 11, weight: 'bold' },
-   },
-   grid: { display: false },
-  },
- },
-}));
+// --- Chart 1: Tunggakan per rumah is removed in favor of a grid matrix UI ---
 
 // --- Chart 2: Saldo Kas per bulan (Area Line) ---
 const saldoChartData = computed(() => ({
@@ -167,13 +120,7 @@ const latestSaldo = computed(() => {
  return props.saldoPerBulan[currentIdx] ?? props.saldoPerBulan[props.saldoPerBulan.length - 1] ?? 0;
 });
 
-// Dynamic chart height based on data count
-const unpaidChartHeight = computed(() => {
- const count = props.unpaidHouses.length;
- if (count <= 5) return 220;
- if (count <= 15) return Math.max(300, count * 28);
- return Math.max(400, count * 24);
-});
+
 </script>
 
 <template>
@@ -278,8 +225,11 @@ const unpaidChartHeight = computed(() => {
        <p class="text-lg font-bold text-green-600">Semua lunas!</p>
        <p class="text-sm text-slate-500 mt-1">Tidak ada tunggakan untuk {{ currentMonthLabel }}</p>
       </div>
-      <div v-else :style="{ height: unpaidChartHeight + 'px' }">
-       <Bar :data="unpaidChartData" :options="unpaidChartOptions" />
+      <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+       <div v-for="house in unpaidHouses" :key="house.name" class="flex flex-col p-3 rounded-lg border border-red-100 bg-red-50/50 hover:bg-red-50 transition-colors">
+        <span class="text-sm font-bold text-slate-800">{{ house.name }}</span>
+        <span class="text-xs font-semibold text-red-600 mt-1">{{ formatCurrency(house.remaining) }}</span>
+       </div>
       </div>
      </CardContent>
     </Card>
