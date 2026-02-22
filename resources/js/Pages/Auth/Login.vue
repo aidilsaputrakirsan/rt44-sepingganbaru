@@ -31,10 +31,10 @@ const submit = () => {
     <Head title="Login" />
 
     <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50/80 via-white to-orange-50/50 p-4 relative">
-        <!-- Subtle decorative shapes -->
+        <!-- Subtle decorative shapes (Optimized for performance) -->
         <div class="fixed inset-0 overflow-hidden pointer-events-none">
-            <div class="absolute -top-32 -right-32 w-72 h-72 bg-amber-100/40 rounded-full blur-3xl"></div>
-            <div class="absolute -bottom-32 -left-32 w-72 h-72 bg-orange-100/30 rounded-full blur-3xl"></div>
+            <div class="absolute -top-32 -right-32 w-72 h-72 rounded-full" style="background: radial-gradient(circle, rgba(254, 243, 199, 0.4) 0%, rgba(254, 243, 199, 0) 70%);"></div>
+            <div class="absolute -bottom-32 -left-32 w-72 h-72 rounded-full" style="background: radial-gradient(circle, rgba(255, 237, 213, 0.3) 0%, rgba(255, 237, 213, 0) 70%);"></div>
         </div>
 
         <div class="w-full max-w-sm relative z-10">
