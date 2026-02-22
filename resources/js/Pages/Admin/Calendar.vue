@@ -404,6 +404,7 @@ const confirmSendReminder = () => {
  <span v-if="data.paid_amount > 0" class="font-bold">{{ formatCurrency(data.paid_amount) }}</span>
  <span v-else class="text-muted-foreground">-</span>
  </template>
+ <span v-else-if="row.is_subsidized" class="text-[9px] font-bold text-slate-400">SUBSIDI</span>
  <span v-else>•</span>
  </div>
  </TableCell>

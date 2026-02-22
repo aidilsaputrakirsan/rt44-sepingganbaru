@@ -77,6 +77,7 @@ class WargaController extends Controller
             'name' => 'nullable|string|max:255',
             'email' => 'nullable|email|unique:users,email',
             'phone_number' => 'nullable|string',
+            'is_subsidized' => 'required|boolean',
         ]);
 
         DB::transaction(function () use ($validated) {
@@ -94,24 +95,27 @@ class WargaController extends Controller
                 'nomor' => $validated['nomor'],
                 'status_huni' => $validated['status_huni'],
                 'resident_status' => $validated['resident_status'],
+                'is_subsidized' => $validated['is_subsidized'],
                 'owner_id' => $user->id,
             ]);
 
-            // Create dues for all 12 months of the current year
-            $year = now()->year;
-            $amount = ($house->status_huni === 'berpenghuni') ? 160000 : 110000;
+            if (!$house->is_subsidized) {
+                // Create dues for all 12 months of the current year
+                $year = now()->year;
+                $amount = ($house->status_huni === 'berpenghuni') ? 160000 : 110000;
 
-            for ($m = 1; $m <= 12; $m++) {
-                $period = \Carbon\Carbon::create($year, $m, 1)->format('Y-m-d');
-                $dueDate = \Carbon\Carbon::create($year, $m, 1)->endOfMonth()->format('Y-m-d');
+                for ($m = 1; $m <= 12; $m++) {
+                    $period = \Carbon\Carbon::create($year, $m, 1)->format('Y-m-d');
+                    $dueDate = \Carbon\Carbon::create($year, $m, 1)->endOfMonth()->format('Y-m-d');
 
-                \App\Models\Due::create([
-                    'house_id' => $house->id,
-                    'period' => $period,
-                    'amount' => $amount,
-                    'due_date' => $dueDate,
-                    'status' => 'unpaid'
-                ]);
+                    \App\Models\Due::create([
+                        'house_id' => $house->id,
+                        'period' => $period,
+                        'amount' => $amount,
+                        'due_date' => $dueDate,
+                        'status' => 'unpaid'
+                    ]);
+                }
             }
         });
 
@@ -126,6 +130,7 @@ class WargaController extends Controller
             'name' => 'nullable|string|max:255',
             'email' => 'nullable|email|unique:users,email,' . ($house->owner_id ?? 0),
             'phone_number' => 'nullable|string',
+            'is_subsidized' => 'required|boolean',
         ]);
 
         DB::transaction(function () use ($validated, $house) {
@@ -149,17 +154,40 @@ class WargaController extends Controller
 
             $house->status_huni = $validated['status_huni'];
             $house->resident_status = $validated['resident_status'];
+            $house->is_subsidized = $validated['is_subsidized'];
             $house->save();
 
-            // Auto-update current & future months' bill amount based on new status_huni
-            // Only update dues that are still unpaid (paid dues keep their original amount)
             $currentPeriod = \Carbon\Carbon::now()->startOfMonth()->format('Y-m-d');
-            $newAmount = \App\Services\DuesService::calculate($house);
 
-            \App\Models\Due::where('house_id', $house->id)
-                ->where('period', '>=', $currentPeriod)
-                ->whereIn('status', ['unpaid', 'overdue'])
-                ->update(['amount' => $newAmount]);
+            if ($house->is_subsidized) {
+                // Delete ALL unpaid/overdue dues since house is now subsidized (past, current, future)
+                \App\Models\Due::where('house_id', $house->id)
+                    ->whereIn('status', ['unpaid', 'overdue'])
+                    ->delete();
+            } else {
+                // Auto-update current & future months' bill amount based on new status
+                $newAmount = \App\Services\DuesService::calculate($house);
+                \App\Models\Due::where('house_id', $house->id)
+                    ->where('period', '>=', $currentPeriod)
+                    ->whereIn('status', ['unpaid', 'overdue'])
+                    ->update(['amount' => $newAmount]);
+                
+                // Also create missing dues sequentially up to end of year (just in case they were deleted before)
+                $year = now()->year;
+                for ($m = 1; $m <= 12; $m++) {
+                    $period = \Carbon\Carbon::create($year, $m, 1);
+                    if ($period->format('Y-m') >= \Carbon\Carbon::now()->format('Y-m')) {
+                        \App\Models\Due::firstOrCreate(
+                            ['house_id' => $house->id, 'period' => $period->format('Y-m-d')],
+                            [
+                                'amount' => $newAmount,
+                                'status' => 'unpaid',
+                                'due_date' => $period->copy()->addDays(9)->format('Y-m-d'),
+                            ]
+                        );
+                    }
+                }
+            }
         });
 
         return back()->with('success', 'Data warga berhasil diperbarui.');
@@ -167,9 +195,17 @@ class WargaController extends Controller
 
     public function recalculateDues(House $house)
     {
-        $newAmount = \App\Services\DuesService::calculate($house);
         $currentPeriod = \Carbon\Carbon::now()->startOfMonth()->format('Y-m-d');
 
+        if ($house->is_subsidized) {
+            \App\Models\Due::where('house_id', $house->id)
+                ->where('period', '>=', $currentPeriod)
+                ->whereIn('status', ['unpaid', 'overdue'])
+                ->delete();
+            return back()->with('success', "Karena rumah {$house->blok}/{$house->nomor} berstatus Bebas Iuran, tagihan yang belum dibayar berhasil dihapus.");
+        }
+
+        $newAmount = \App\Services\DuesService::calculate($house);
         $updated = \App\Models\Due::where('house_id', $house->id)
             ->where('period', '>=', $currentPeriod)
             ->whereIn('status', ['unpaid', 'overdue'])

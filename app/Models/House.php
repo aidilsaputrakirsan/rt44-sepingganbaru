@@ -16,6 +16,7 @@ class House extends Model
         'is_connected',
         'meteran_count',
         'owner_id',
+        'is_subsidized',
     ];
 
     public function owner()

@@ -36,6 +36,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/admin/tagihan/bulk-update', [AdminController::class, 'bulkUpdateDues'])->name('admin.tagihan.bulk-update');
     Route::get('/admin/reminder/{house}/preview', [AdminController::class, 'previewReminder'])->name('admin.reminder.preview');
     Route::post('/admin/reminder/{house}', [AdminController::class, 'sendReminder'])->name('admin.reminder.send');
+    Route::post('/admin/settings/toggle-auto-reminder', [AdminController::class, 'toggleAutoReminder'])->name('admin.settings.toggle-auto-reminder');
 
     // Warga (Resident) Data Routes
     Route::get('/admin/warga', [\App\Http\Controllers\WargaController::class, 'index'])->name('admin.warga.index');

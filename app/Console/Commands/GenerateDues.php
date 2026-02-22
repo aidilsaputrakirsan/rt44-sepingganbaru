@@ -26,7 +26,7 @@ class GenerateDues extends Command
     public function handle()
     {
         $year = \Carbon\Carbon::today()->year;
-        $houses = \App\Models\House::all();
+        $houses = \App\Models\House::where('is_subsidized', false)->get();
         $totalCreated = 0;
 
         for ($m = 1; $m <= 12; $m++) {

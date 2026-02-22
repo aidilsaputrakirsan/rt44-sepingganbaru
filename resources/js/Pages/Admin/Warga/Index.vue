@@ -57,6 +57,7 @@ const form = useForm({
  name: '',
  email: '',
  phone_number: '',
+ is_subsidized: false,
 });
 
 // Auto-generate email saat blok/nomor berubah di form Tambah
@@ -70,6 +71,7 @@ const editForm = useForm({
  name: '',
  email: '',
  phone_number: '',
+ is_subsidized: false,
 });
 
 const importForm = useForm({
@@ -93,6 +95,7 @@ const openEditModal = (house) => {
  editForm.name = house.owner ? house.owner.name : '';
  editForm.email = house.owner ? house.owner.email : generateEmail(house.blok, house.nomor);
  editForm.phone_number = house.owner ? house.owner.phone_number : '';
+ editForm.is_subsidized = !!house.is_subsidized;
  isEditModalOpen.value = true;
 };
 
@@ -216,7 +219,12 @@ const getResidentStatusVariant = (status) => {
  <TableBody>
  <TableRow v-for="house in filteredHouses" :key="house.id" class="border-slate-100 cursor-pointer hover:bg-slate-50/50 transition-colors" @click="!isDemo && openEditModal(house)">
  <TableCell class="font-bold text-indigo-600 py-4">
- {{ house.blok }}/{{ house.nomor }}
+ <div class="flex items-center gap-2">
+  <span>{{ house.blok }}/{{ house.nomor }}</span>
+  <Badge v-if="house.is_subsidized" variant="outline" class="bg-indigo-50 text-indigo-600 border-indigo-200 uppercase text-[10px]">
+  Subsidi
+  </Badge>
+ </div>
  </TableCell>
  <TableCell>
  <div class="font-semibold text-slate-900">
@@ -327,6 +335,18 @@ const getResidentStatusVariant = (status) => {
  </Select>
  </div>
  </div>
+ <div class="grid gap-2 mt-4">
+ <Label>Kewajiban Iuran</Label>
+ <Select v-model="form.is_subsidized">
+ <SelectTrigger>
+ <SelectValue placeholder="Pilih jenis" />
+ </SelectTrigger>
+ <SelectContent>
+ <SelectItem :value="false">Reguler (Wajib Bayar)</SelectItem>
+ <SelectItem :value="true">Bebas Iuran (Subsidi RT)</SelectItem>
+ </SelectContent>
+ </Select>
+ </div>
 
  <div class="border-t pt-4 mt-2">
  <p class="text-sm font-bold text-slate-900 mb-4">Informasi Penghuni / Pemilik</p>
@@ -393,8 +413,21 @@ const getResidentStatusVariant = (status) => {
  </Select>
  </div>
  </div>
- <p class="text-xs text-amber-600 flex items-center gap-1">
- ⚡ Mengubah status huni otomatis menyesuaikan tagihan yang belum lunas.
+ <div class="grid gap-2 mt-4">
+ <Label>Kewajiban Iuran</Label>
+ <Select v-model="editForm.is_subsidized">
+ <SelectTrigger>
+ <SelectValue placeholder="Pilih jenis" />
+ </SelectTrigger>
+ <SelectContent>
+ <SelectItem :value="false">Reguler (Wajib Bayar)</SelectItem>
+ <SelectItem :value="true">Bebas Iuran (Subsidi RT)</SelectItem>
+ </SelectContent>
+ </Select>
+ </div>
+ <p class="text-[10px] text-amber-600 flex flex-col items-start gap-0.5 leading-tight mt-1">
+ <span>⚡ Mengubah status huni otomatis menyesuaikan tagihan berjalan.</span>
+ <span>⚡ Beralih ke opsi <b>Subsidi</b> otomatis <b>menghapus</b> seluruh tagihan yang belum dibayar.</span>
  </p>
 
  <div class="border-t pt-4 mt-2">

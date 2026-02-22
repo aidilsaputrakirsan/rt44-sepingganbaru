@@ -10,6 +10,7 @@ use App\Models\House;
 use App\Models\Payment;
 use App\Models\Expense;
 use App\Models\MonthlyBalance;
+use App\Models\Setting;
 use App\Services\FonnteService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
@@ -116,9 +117,27 @@ class AdminController extends Controller
                 ];
             });
 
+        $autoReminderSetting = Setting::find('auto_reminder');
+        $isAutoReminderEnabled = $autoReminderSetting ? ($autoReminderSetting->value === '1') : false;
+
         return Inertia::render('Admin/TagihanDataWarga', [
             'dues' => $dues,
+            'isAutoReminderEnabled' => $isAutoReminderEnabled,
         ]);
+    }
+
+    public function toggleAutoReminder(Request $request)
+    {
+        $setting = Setting::firstOrCreate(
+            ['key' => 'auto_reminder'],
+            ['value' => '0']
+        );
+
+        $newValue = $setting->value === '1' ? '0' : '1';
+        $setting->update(['value' => $newValue]);
+
+        $statusMessage = $newValue === '1' ? 'diaktifkan' : 'dinonaktifkan';
+        return back()->with('success', "Fitur Auto-Reminder WA berhasil {$statusMessage}.");
     }
 
     public function bulkUpdateDues(Request $request)
@@ -195,6 +214,7 @@ class AdminController extends Controller
                 'name' => $house->blok . '/' . $house->nomor,
                 'owner' => $isDemo ? $this->censorName($ownerName) : $ownerName,
                 'phone' => $house->owner ? $house->owner->phone_number : null,
+                'is_subsidized' => (bool)$house->is_subsidized,
                 'months' => [],
                 'total_unpaid' => 0,
                 'unpaid_months_count' => 0,
@@ -261,6 +281,7 @@ class AdminController extends Controller
         $calendar = $houses->map(function ($house) use ($duesGrouped) {
             $data = [
                 'name' => $house->blok . '/' . $house->nomor,
+                'is_subsidized' => (bool)$house->is_subsidized,
                 'months' => []
             ];
 

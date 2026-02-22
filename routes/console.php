@@ -6,3 +6,9 @@ use Illuminate\Support\Facades\Artisan;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+use Illuminate\Support\Facades\Schedule;
+
+Schedule::command('reminders:send-auto')
+    ->monthlyOn(9, '10:00')
+    ->timezone('Asia/Makassar'); // Use local timezone

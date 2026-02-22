@@ -10,10 +10,11 @@ import { Badge } from '@/Components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { Search, X, Settings2 } from 'lucide-vue-next';
+import { Search, X, Settings2, PhoneForwarded } from 'lucide-vue-next';
 
 const props = defineProps({
  dues: Array,
+ isAutoReminderEnabled: Boolean,
 });
 
 const isDemo = computed(() => usePage().props.auth.is_demo);
@@ -31,6 +32,21 @@ const filteredDues = computed(() => {
 const page = usePage();
 const flash = computed(() => page.props.flash || {});
 const showFlash = ref(true);
+
+// --- Auto Reminder ---
+import { router } from '@inertiajs/vue3';
+
+const isAutoReminderLoading = ref(false);
+const toggleAutoReminder = () => {
+    isAutoReminderLoading.value = true;
+    router.post(route('admin.settings.toggle-auto-reminder'), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            isAutoReminderLoading.value = false;
+            showFlash.value = true;
+        }
+    });
+};
 
 // --- Bulk Update ---
 const bulkForm = useForm({
@@ -144,6 +160,29 @@ const formatCurrency = (amount) => {
  <div v-if="showFlash && (flash.success || flash.error)" class="mb-4 rounded-lg px-4 py-3 text-sm flex items-center justify-between" :class="flash.success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'">
  <span>{{ flash.success || flash.error }}</span>
  <button @click="showFlash = false" class="ml-2 text-current opacity-60 hover:opacity-100">&times;</button>
+ </div>
+
+ <!-- Auto Reminder Toggle -->
+ <div v-if="!isDemo" class="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+ <div>
+ <div class="flex items-center gap-2 mb-1">
+ <PhoneForwarded class="w-4 h-4 text-indigo-600" />
+ <span class="text-sm font-semibold text-indigo-900">Auto-Reminder WhatsApp (Tgl 9)</span>
+ <Badge :variant="isAutoReminderEnabled ? 'default' : 'secondary'" :class="isAutoReminderEnabled ? 'bg-indigo-600' : ''">
+ {{ isAutoReminderEnabled ? 'AKTIF' : 'NONAKTIF' }}
+ </Badge>
+ </div>
+ <p class="text-[11px] text-indigo-700/70 font-medium">Otomatis mengirim pesan WA ke warga yang belum lunas (Reguler) pada tanggal 9 jam 10:00 WITA tiap bulannya.</p>
+ </div>
+ <Button 
+ @click="toggleAutoReminder" 
+ :disabled="isAutoReminderLoading" 
+ :variant="isAutoReminderEnabled ? 'destructive' : 'default'" 
+ class="shrink-0 text-xs h-8 sm:w-auto w-full font-semibold shadow-sm"
+ :class="!isAutoReminderEnabled ? 'bg-indigo-600 hover:bg-indigo-700' : ''"
+ >
+ {{ isAutoReminderEnabled ? 'Matikan Reminder' : 'Aktifkan Reminder' }}
+ </Button>
  </div>
 
  <!-- Bulk Update -->

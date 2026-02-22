@@ -14,7 +14,8 @@ const months = [
  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ];
 
-const getStatusColor = (status) => {
+const getStatusColor = (status, isSubsidized) => {
+ if (status === 'none' && isSubsidized) return 'text-slate-400';
  switch (status) {
  case 'paid': return 'text-green-600';
  case 'unpaid': return 'text-red-600';
@@ -23,7 +24,8 @@ const getStatusColor = (status) => {
  }
 };
 
-const getBorderColor = (status) => {
+const getBorderColor = (status, isSubsidized) => {
+ if (status === 'none' && isSubsidized) return 'border-slate-200 bg-slate-50 opacity-80';
  switch (status) {
  case 'paid': return 'border-green-200 bg-green-50';
  case 'unpaid': return 'border-red-200 bg-red-50';
@@ -31,7 +33,8 @@ const getBorderColor = (status) => {
  }
 };
 
-const getStatusText = (status) => {
+const getStatusText = (status, isSubsidized) => {
+ if (status === 'none' && isSubsidized) return 'SUBSIDI';
  switch (status) {
  case 'paid': return 'LUNAS';
  case 'unpaid': return 'BELUM';

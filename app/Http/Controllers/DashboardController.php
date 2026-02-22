@@ -43,6 +43,7 @@ class DashboardController extends Controller
             $data = [
                 'id' => $house->id,
                 'name' => $house->blok . '/' . $house->nomor,
+                'is_subsidized' => (bool)$house->is_subsidized,
                 'months' => []
             ];
 
