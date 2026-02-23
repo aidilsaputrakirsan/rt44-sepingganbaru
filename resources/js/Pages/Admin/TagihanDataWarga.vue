@@ -2,6 +2,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import DemoToast from '@/Components/DemoToast.vue';
+import { useDemoGuard } from '@/composables/useDemoGuard';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
@@ -10,14 +12,14 @@ import { Badge } from '@/Components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { Search, X, Settings2, PhoneForwarded } from 'lucide-vue-next';
+import { Search, X, Settings2, PhoneForwarded, Receipt } from 'lucide-vue-next';
 
 const props = defineProps({
  dues: Array,
  isAutoReminderEnabled: Boolean,
 });
 
-const isDemo = computed(() => usePage().props.auth.is_demo);
+const { isDemo, demoGuard } = useDemoGuard();
 
 const searchQuery = ref('');
 const filteredDues = computed(() => {
@@ -141,9 +143,17 @@ const formatCurrency = (amount) => {
 
  <AuthenticatedLayout>
  <template #header>
- <h2 class="text-xl font-semibold leading-tight text-gray-800">
- Kelola Tagihan Iuran Warga
+ <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+ <div>
+ <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+ <Receipt class="w-6 h-6 text-indigo-600" />
+ Tagihan Iuran Warga
  </h2>
+ <p class="text-slate-500 mt-1 uppercase text-sm tracking-wider font-medium">
+ Kelola Besaran Tagihan Per Rumah
+ </p>
+ </div>
+ </div>
  </template>
 
  <div class="py-12">
@@ -163,7 +173,7 @@ const formatCurrency = (amount) => {
  </div>
 
  <!-- Auto Reminder Toggle -->
- <div v-if="!isDemo" class="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+ <div class="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4" :class="isDemo ? 'opacity-60' : ''">
  <div>
  <div class="flex items-center gap-2 mb-1">
  <PhoneForwarded class="w-4 h-4 text-indigo-600" />
@@ -175,18 +185,18 @@ const formatCurrency = (amount) => {
  <p class="text-[11px] text-indigo-700/70 font-medium">Otomatis mengirim pesan WA ke warga yang belum lunas (Reguler) pada tanggal 9 jam 10:00 WITA tiap bulannya.</p>
  </div>
  <Button 
- @click="toggleAutoReminder" 
+ @click="demoGuard() && toggleAutoReminder()" 
  :disabled="isAutoReminderLoading" 
  :variant="isAutoReminderEnabled ? 'destructive' : 'default'" 
  class="shrink-0 text-xs h-8 sm:w-auto w-full font-semibold shadow-sm"
- :class="!isAutoReminderEnabled ? 'bg-indigo-600 hover:bg-indigo-700' : ''"
+ :class="[!isAutoReminderEnabled ? 'bg-indigo-600 hover:bg-indigo-700' : '', isDemo ? 'cursor-not-allowed' : '']"
  >
  {{ isAutoReminderEnabled ? 'Matikan Reminder' : 'Aktifkan Reminder' }}
  </Button>
  </div>
 
  <!-- Bulk Update -->
- <div v-if="!isDemo" class="mb-5 rounded-lg border bg-slate-50 p-4">
+ <div class="mb-5 rounded-lg border bg-slate-50 p-4" :class="isDemo ? 'opacity-60' : ''">
  <div class="flex items-center gap-2 mb-3">
  <Settings2 class="w-4 h-4 text-muted-foreground" />
  <span class="text-sm font-semibold">Atur Nominal Massal</span>
@@ -213,10 +223,11 @@ const formatCurrency = (amount) => {
  />
  </div>
  <Button
- @click="submitBulkUpdate"
+ @click="demoGuard() && submitBulkUpdate()"
  :disabled="bulkForm.processing || (bulkForm.amount_berpenghuni === null && bulkForm.amount_kosong === null)"
  size="sm"
  class="shrink-0"
+ :class="isDemo ? 'cursor-not-allowed' : ''"
  >
  Terapkan Semua
  </Button>
@@ -258,10 +269,10 @@ const formatCurrency = (amount) => {
  </TableCell>
  <TableCell class="text-center">
  <Button
- v-if="!isDemo"
  variant="outline"
  size="sm"
- @click="openEditModal(due)"
+ @click="demoGuard() && openEditModal(due)"
+ :class="isDemo ? 'opacity-40 cursor-not-allowed' : ''"
  >
  Ubah Tagihan
  </Button>
@@ -323,5 +334,6 @@ const formatCurrency = (amount) => {
  </DialogFooter>
  </DialogContent>
  </Dialog>
+ <DemoToast />
  </AuthenticatedLayout>
 </template>

@@ -2,6 +2,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import DemoToast from '@/Components/DemoToast.vue';
+import { useDemoGuard } from '@/composables/useDemoGuard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Button } from '@/Components/ui/button';
@@ -15,7 +17,7 @@ defineProps({
  groupedExpenses: Object,
 });
 
-const isDemo = computed(() => usePage().props.auth.is_demo);
+const { isDemo, demoGuard } = useDemoGuard();
 
 const isModalOpen = ref(false);
 const isEditModalOpen = ref(false);
@@ -156,20 +158,26 @@ const submitCloneExpense = () => {
 
  <AuthenticatedLayout>
  <template #header>
- <div class="flex justify-between items-center">
- <h2 class="text-xl font-semibold leading-tight text-gray-800">
- Catatan Pengeluaran Kas RT
+ <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+ <div>
+ <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+ <Receipt class="w-6 h-6 text-indigo-600" />
+ Pengeluaran
  </h2>
- <div v-if="!isDemo" class="flex gap-2">
- <Button variant="outline" @click="isCloneModalOpen = true" class="flex items-center gap-2">
- <Copy class="w-4 h-4" />
- Salin Data Bulanan
- </Button>
- <Button @click="isModalOpen = true">
- <Plus class="w-4 h-4 mr-2" />
- Tambah Pengeluaran
- </Button>
+ <p class="text-slate-500 mt-1 uppercase text-sm tracking-wider font-medium">
+ Catatan Pengeluaran Kas RT
+ </p>
  </div>
+  <div class="flex gap-2" :class="isDemo ? 'opacity-50' : ''">
+  <Button variant="outline" @click="demoGuard() && (isCloneModalOpen = true)" class="flex items-center gap-2" :class="isDemo ? 'cursor-not-allowed' : ''">
+  <Copy class="w-4 h-4" />
+  Salin Data Bulanan
+  </Button>
+  <Button @click="demoGuard() && (isModalOpen = true)" class="bg-indigo-600 hover:bg-indigo-700 shadow-md flex items-center gap-2" :class="isDemo ? 'cursor-not-allowed' : ''">
+  <Plus class="w-4 h-4" />
+  Tambah Pengeluaran
+  </Button>
+  </div>
  </div>
  </template>
 
@@ -192,7 +200,7 @@ const submitCloneExpense = () => {
  <TableHead>Keterangan / Kegiatan</TableHead>
  <TableHead>Kategori</TableHead>
  <TableHead class="text-right">Nominal</TableHead>
- <TableHead v-if="!isDemo" class="text-center w-24">Action</TableHead>
+  <TableHead class="text-center w-24">Action</TableHead>
  </TableRow>
  </TableHeader>
  <TableBody>
@@ -209,16 +217,16 @@ const submitCloneExpense = () => {
  <TableCell class="text-right font-bold text-red-600">
  {{ formatCurrency(expense.amount) }}
  </TableCell>
- <TableCell v-if="!isDemo" class="text-center">
- <div class="flex items-center justify-center gap-1">
- <Button variant="ghost" size="icon" @click="openEditModal(expense)" class="h-8 w-8 text-slate-500 hover:text-indigo-600">
- <Edit2 class="w-4 h-4" />
- </Button>
- <Button variant="ghost" size="icon" @click="openDeleteModal(expense)" class="h-8 w-8 text-slate-500 hover:text-destructive">
- <Trash2 class="w-4 h-4" />
- </Button>
- </div>
- </TableCell>
+  <TableCell class="text-center">
+  <div class="flex items-center justify-center gap-1" :class="isDemo ? 'opacity-40' : ''">
+  <Button variant="ghost" size="icon" @click="demoGuard() && openEditModal(expense)" class="h-8 w-8 text-slate-500 hover:text-indigo-600" :class="isDemo ? 'cursor-not-allowed' : ''">
+  <Edit2 class="w-4 h-4" />
+  </Button>
+  <Button variant="ghost" size="icon" @click="demoGuard() && openDeleteModal(expense)" class="h-8 w-8 text-slate-500 hover:text-destructive" :class="isDemo ? 'cursor-not-allowed' : ''">
+  <Trash2 class="w-4 h-4" />
+  </Button>
+  </div>
+  </TableCell>
  </TableRow>
  </TableBody>
  </Table>
@@ -399,6 +407,7 @@ const submitCloneExpense = () => {
  </Button>
  </DialogFooter>
  </DialogContent>
- </Dialog>
- </AuthenticatedLayout>
+  </Dialog>
+  <DemoToast />
+  </AuthenticatedLayout>
 </template>

@@ -69,7 +69,7 @@ const menuItems = computed(() => {
         <div class="p-3 border-t border-[hsl(var(--sidebar-border))]">
             <div v-if="isDemo" class="mb-3 mx-1 px-3 py-2 rounded-lg bg-amber-500/20 border border-amber-500/30 text-center">
                 <p class="text-xs font-bold text-amber-400 uppercase tracking-wider">Mode Demo</p>
-                <p class="text-[10px] text-amber-300/80 mt-0.5">Hanya melihat data</p>
+                <p class="text-[10px] text-amber-300/80 mt-0.5">Semua fitur terlihat, data tidak bisa diubah</p>
             </div>
             <div class="flex items-center mb-3 px-3">
                 <div class="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">

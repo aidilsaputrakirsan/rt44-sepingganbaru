@@ -143,6 +143,27 @@
             color: #d1d5db;
         }
 
+        .subsidi {
+            background-color: #dbeafe;
+            color: #1e40af;
+            font-weight: bold;
+            font-size: 5.5px;
+            letter-spacing: 0.5px;
+        }
+
+        .subsidi-badge {
+            display: inline-block;
+            background-color: #dbeafe;
+            color: #1e40af;
+            font-size: 5.5px;
+            font-weight: bold;
+            padding: 0.5px 3px;
+            border-radius: 2px;
+            margin-left: 3px;
+            letter-spacing: 0.3px;
+            vertical-align: middle;
+        }
+
         /* === LEGEND === */
         .legend {
             margin-top: 10px;
@@ -196,7 +217,12 @@
         <tbody>
             @foreach($calendar as $row)
                 <tr>
-                    <td>{{ $row['name'] }}</td>
+                    <td>
+                        {{ $row['name'] }}
+                        @if($row['is_subsidized'])
+                            <span class="subsidi-badge">SUBSIDI</span>
+                        @endif
+                    </td>
                     @for($m = 1; $m <= 12; $m++)
                         @php
                             $data = $row['months'][$m];
@@ -214,6 +240,9 @@
                                     $class = 'unpaid';
                                     $text = '-';
                                 }
+                            } elseif ($data['status'] === 'none' && $row['is_subsidized']) {
+                                $class = 'subsidi';
+                                $text = 'SUBSIDI';
                             }
                         @endphp
                         <td class="{{ $class }}">{{ $text }}</td>
@@ -227,6 +256,7 @@
         <span><span class="legend-box" style="background-color: #dcfce7;"></span> Lunas</span>
         <span><span class="legend-box" style="background-color: #fef9c3;"></span> Bayar Sebagian</span>
         <span><span class="legend-box" style="background-color: white;"></span> Belum Bayar</span>
+        <span><span class="legend-box" style="background-color: #dbeafe;"></span> Subsidi (Bebas Iuran)</span>
         <span><span class="legend-box" style="background-color: #f3f4f6;"></span> Tidak Ada Tagihan</span>
     </div>
 

@@ -2,11 +2,13 @@
 import { ref, computed, watch } from 'vue';
 import { Head, useForm, usePage, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import DemoToast from '@/Components/DemoToast.vue';
+import { useDemoGuard } from '@/composables/useDemoGuard';
 import { 
  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from '@/Components/ui/table';
 import { 
- Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger 
+ Dialog, DialogContent, DialogScrollContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger 
 } from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
@@ -23,7 +25,7 @@ const props = defineProps({
  houses: Array,
 });
 
-const isDemo = computed(() => usePage().props.auth.is_demo);
+const { isDemo, demoGuard } = useDemoGuard();
 
 const searchQuery = ref('');
 const filteredHouses = computed(() => {
@@ -83,11 +85,6 @@ const openAddModal = () => {
  isAddModalOpen.value = true;
 };
 
-const editEmailGenerated = computed(() => {
- if (!selectedHouse.value) return '';
- return generateEmail(selectedHouse.value.blok, selectedHouse.value.nomor);
-});
-
 const openEditModal = (house) => {
  selectedHouse.value = house;
  editForm.status_huni = house.status_huni;
@@ -117,9 +114,9 @@ const submitUpdate = () => {
 };
 
 const deleteHouse = (house) => {
- if (isDemo.value) return;
- houseToDelete.value = house;
- isDeleteModalOpen.value = true;
+  if (!demoGuard()) return;
+  houseToDelete.value = house;
+  isDeleteModalOpen.value = true;
 };
 
 const confirmDelete = () => {
@@ -173,16 +170,16 @@ const getResidentStatusVariant = (status) => {
  </p>
  </div>
 
- <div v-if="!isDemo" class="flex items-center gap-3">
- <Button variant="outline" @click="isImportModalOpen = true" class="flex items-center gap-2 shadow-sm border-slate-200">
- <FileSpreadsheet class="w-4 h-4" />
- Import Excel
- </Button>
- <Button @click="openAddModal" class="bg-indigo-600 hover:bg-indigo-700 shadow-md flex items-center gap-2">
- <Plus class="w-4 h-4" />
- Tambah Warga
- </Button>
- </div>
+  <div class="flex items-center gap-3" :class="isDemo ? 'opacity-50' : ''">
+  <Button variant="outline" @click="demoGuard() && (isImportModalOpen = true)" class="flex items-center gap-2 shadow-sm border-slate-200" :class="isDemo ? 'cursor-not-allowed' : ''">
+  <FileSpreadsheet class="w-4 h-4" />
+  Import Excel
+  </Button>
+  <Button @click="demoGuard() && openAddModal()" class="bg-indigo-600 hover:bg-indigo-700 shadow-md flex items-center gap-2" :class="isDemo ? 'cursor-not-allowed' : ''">
+  <Plus class="w-4 h-4" />
+  Tambah Warga
+  </Button>
+  </div>
  </div>
  </template>
 
@@ -213,11 +210,11 @@ const getResidentStatusVariant = (status) => {
  <TableHead>Kontak</TableHead>
  <TableHead class="text-center">Status Huni</TableHead>
  <TableHead class="text-center">Status Kepemilikan</TableHead>
- <TableHead v-if="!isDemo" class="text-center">Aksi</TableHead>
+  <TableHead class="text-center">Aksi</TableHead>
  </TableRow>
  </TableHeader>
  <TableBody>
- <TableRow v-for="house in filteredHouses" :key="house.id" class="border-slate-100 cursor-pointer hover:bg-slate-50/50 transition-colors" @click="!isDemo && openEditModal(house)">
+  <TableRow v-for="house in filteredHouses" :key="house.id" class="border-slate-100 cursor-pointer hover:bg-slate-50/50 transition-colors" @click="demoGuard() && openEditModal(house)">
  <TableCell class="font-bold text-indigo-600 py-4">
  <div class="flex items-center gap-2">
   <span>{{ house.blok }}/{{ house.nomor }}</span>
@@ -253,26 +250,28 @@ const getResidentStatusVariant = (status) => {
  {{ getResidentStatusLabel(house.resident_status) }}
  </Badge>
  </TableCell>
- <TableCell v-if="!isDemo" class="text-center">
- <div class="flex items-center justify-center gap-1">
- <Button
- variant="ghost"
- size="icon"
- class="h-8 w-8 text-slate-500 hover:text-indigo-600"
- @click.stop="openEditModal(house)"
- title="Edit data warga"
- >
- <Edit2 class="w-4 h-4" />
- </Button>
- <button
- class="h-8 w-8 text-slate-500 hover:text-red-600 flex items-center justify-center rounded-md hover:bg-slate-100 transition-colors"
- @click.stop="deleteHouse(house)"
- title="Hapus data rumah"
- >
- <Trash2 class="w-4 h-4" />
- </button>
- </div>
- </TableCell>
+  <TableCell class="text-center">
+  <div class="flex items-center justify-center gap-1" :class="isDemo ? 'opacity-40' : ''">
+  <Button
+  variant="ghost"
+  size="icon"
+  class="h-8 w-8 text-slate-500 hover:text-indigo-600"
+  :class="isDemo ? 'cursor-not-allowed' : ''"
+  @click.stop="demoGuard() && openEditModal(house)"
+  title="Edit data warga"
+  >
+  <Edit2 class="w-4 h-4" />
+  </Button>
+  <button
+  class="h-8 w-8 text-slate-500 hover:text-red-600 flex items-center justify-center rounded-md hover:bg-slate-100 transition-colors"
+  :class="isDemo ? 'cursor-not-allowed' : ''"
+  @click.stop="deleteHouse(house)"
+  title="Hapus data rumah"
+  >
+  <Trash2 class="w-4 h-4" />
+  </button>
+  </div>
+  </TableCell>
  </TableRow>
 
  <TableRow v-if="filteredHouses.length === 0">
@@ -289,7 +288,7 @@ const getResidentStatusVariant = (status) => {
 
  <!-- Add Modal -->
  <Dialog v-model:open="isAddModalOpen">
- <DialogContent class="sm:max-w-[500px]">
+ <DialogScrollContent class="sm:max-w-[500px]">
  <DialogHeader>
  <DialogTitle>Tambah Data Warga</DialogTitle>
  <DialogDescription>
@@ -373,12 +372,12 @@ const getResidentStatusVariant = (status) => {
  Simpan Data
  </Button>
  </DialogFooter>
- </DialogContent>
+ </DialogScrollContent>
  </Dialog>
 
  <!-- Edit Modal -->
  <Dialog v-model:open="isEditModalOpen">
- <DialogContent class="sm:max-w-[500px]">
+ <DialogScrollContent class="sm:max-w-[500px]">
  <DialogHeader>
  <DialogTitle>Ubah Data Warga</DialogTitle>
  <DialogDescription>
@@ -440,7 +439,6 @@ const getResidentStatusVariant = (status) => {
  <div class="grid gap-2">
  <Label for="edit_email">Email (Username)</Label>
  <Input id="edit_email" v-model="editForm.email" type="email" readonly class="bg-slate-50 cursor-not-allowed" />
- <p class="text-xs text-slate-500">Format: <span class="font-mono font-semibold text-indigo-600">{{ editEmailGenerated }}</span></p>
  </div>
  <div class="grid gap-2">
  <Label for="edit_phone">Nomor HP</Label>
@@ -455,7 +453,7 @@ const getResidentStatusVariant = (status) => {
  Update Data
  </Button>
  </DialogFooter>
- </DialogContent>
+ </DialogScrollContent>
  </Dialog>
 
  <!-- Import Modal -->
@@ -541,5 +539,6 @@ const getResidentStatusVariant = (status) => {
  </DialogContent>
  </Dialog>
 
+ <DemoToast />
  </AuthenticatedLayout>
 </template>

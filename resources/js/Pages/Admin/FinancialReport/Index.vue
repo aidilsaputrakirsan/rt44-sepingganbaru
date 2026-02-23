@@ -2,20 +2,22 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import DemoToast from '@/Components/DemoToast.vue';
+import { useDemoGuard } from '@/composables/useDemoGuard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
-import { TrendingUp, TrendingDown, Wallet, Calendar, Calculator, ArrowRight, Settings2, FileDown, Link, Pencil, RotateCcw } from 'lucide-vue-next';
+import { TrendingUp, TrendingDown, Wallet, Calendar, Calculator, ArrowRight, Settings2, FileDown, Link, Pencil, RotateCcw, PieChart } from 'lucide-vue-next';
 
 const props = defineProps({
  report: Object,
  filters: Object,
 });
 
-const isDemo = computed(() => usePage().props.auth.is_demo);
+const { isDemo, demoGuard } = useDemoGuard();
 
 const isModalOpen = ref(false);
 const displayAmount = ref('');
@@ -98,11 +100,17 @@ const exportPdf = () => {
 
  <AuthenticatedLayout>
  <template #header>
- <div class="flex justify-between items-center">
- <h2 class="text-xl font-semibold leading-tight text-gray-800">
- Laporan Keuangan RT-44
+ <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+ <div>
+ <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+ <PieChart class="w-6 h-6 text-indigo-600" />
+ Laporan Keuangan
  </h2>
- <div class="flex items-center gap-4">
+ <p class="text-slate-500 mt-1 uppercase text-sm tracking-wider font-medium">
+ Laporan Keuangan RT-44
+ </p>
+ </div>
+ <div class="flex items-center gap-3 flex-wrap">
  <div class="flex items-center gap-2 bg-white border rounded-lg px-3 py-1.5 shadow-sm">
  <Calendar class="w-4 h-4 text-muted-foreground" />
  <input
@@ -116,7 +124,7 @@ const exportPdf = () => {
  <FileDown class="w-4 h-4 mr-2" />
  Ekspor PDF
  </Button>
- <Button v-if="!isDemo" variant="outline" size="sm" @click="openModal">
+ <Button variant="outline" size="sm" @click="demoGuard() && openModal()" :class="isDemo ? 'opacity-50 cursor-not-allowed' : ''">
  <Settings2 class="w-4 h-4 mr-2" />
  Saldo Awal
  </Button>
@@ -338,6 +346,7 @@ const exportPdf = () => {
  </form>
  </div>
  </DialogContent>
- </Dialog>
- </AuthenticatedLayout>
+  </Dialog>
+  <DemoToast />
+  </AuthenticatedLayout>
 </template>

@@ -16,7 +16,7 @@ import {
  Filler,
 } from 'chart.js';
 import { computed } from 'vue';
-import { ChevronLeft, ChevronRight, AlertTriangle, Wallet } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, AlertTriangle, Wallet, LayoutDashboard } from 'lucide-vue-next';
 
 ChartJS.register(
  CategoryScale, LinearScale, PointElement, LineElement,
@@ -128,9 +128,17 @@ const latestSaldo = computed(() => {
 
  <AuthenticatedLayout>
   <template #header>
-   <h2 class="text-xl font-semibold leading-tight text-gray-800">
-    Dashboard Admin
-   </h2>
+   <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div>
+     <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+      <LayoutDashboard class="w-6 h-6 text-indigo-600" />
+      Dashboard Admin
+     </h2>
+     <p class="text-slate-500 mt-1 uppercase text-sm tracking-wider font-medium">
+      Ringkasan Data RT-44
+     </p>
+    </div>
+   </div>
   </template>
 
   <div class="py-12">
