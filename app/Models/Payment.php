@@ -20,6 +20,7 @@ class Payment extends Model
         'proof_path',
         'verified_at',
         'payment_date',
+        'notes',
     ];
 
     protected $casts = [

@@ -226,15 +226,18 @@ class AdminController extends Controller
                 // Calculate total verified payments for this due
                 $paidAmount = 0;
                 $manualPaymentId = null;
+                $manualNotes = null;
                 if ($monthDue) {
                     $paidAmount = $monthDue->payments->where('status', 'verified')->sum('amount_paid');
                     $manualPayment = $monthDue->payments->where('method', 'manual')->first();
                     $manualPaymentId = $manualPayment ? $manualPayment->id : null;
+                    $manualNotes = $manualPayment ? $manualPayment->notes : null;
                 }
 
                 $data['months'][$m] = [
                     'due_id' => $monthDue ? $monthDue->id : null,
                     'manual_payment_id' => $manualPaymentId,
+                    'manual_notes' => $manualNotes,
                     'status' => $monthDue ? $monthDue->status : 'none',
                     'bill_amount' => $monthDue ? $monthDue->amount : 0,
                     'paid_amount' => $paidAmount,
@@ -313,6 +316,7 @@ class AdminController extends Controller
         $request->validate([
             'amount' => 'required|numeric|min:0|max:99999999',
             'payment_date' => 'nullable|date|before_or_equal:today',
+            'notes' => 'nullable|string|max:255',
         ], [
             'amount.max' => 'Nominal tidak boleh melebihi Rp 99.999.999.',
         ]);
@@ -350,6 +354,7 @@ class AdminController extends Controller
                 'status' => 'verified',
                 'verified_at' => now(),
                 'payment_date' => $paymentDate,
+                'notes' => $request->notes ?: null,
             ]
         );
 
@@ -372,6 +377,7 @@ class AdminController extends Controller
             'year' => 'required|integer',
             'due_ids' => 'required|array|min:1',
             'due_ids.*' => 'integer|exists:dues,id',
+            'notes' => 'nullable|string|max:255',
         ], [
             'amount.max' => 'Nominal tidak boleh melebihi Rp 99.999.999.',
         ]);
@@ -441,6 +447,7 @@ class AdminController extends Controller
                     'status' => 'verified',
                     'verified_at' => now(),
                     'payment_date' => $paymentDate,
+                    'notes' => $request->notes ?: null,
                 ]);
 
                 $lastAllocatedDue = $due;

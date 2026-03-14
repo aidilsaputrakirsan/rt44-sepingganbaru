@@ -43,6 +43,7 @@ const today = new Date().toISOString().slice(0, 10);
 const form = useForm({
  amount: '',
  payment_date: today,
+ notes: '',
 });
 
 const displayAmount = ref('');
@@ -65,6 +66,7 @@ const openPaymentModal = (dueData, houseName, monthName) => {
 
  form.amount = initialAmount;
  form.payment_date = today;
+ form.notes = dueData.manual_notes || '';
  displayAmount.value = initialAmount > 0 ? formatNumber(initialAmount) : '';
 
  isModalOpen.value = true;
@@ -102,6 +104,7 @@ const submitPayment = () => {
  isModalOpen.value = false;
  form.amount = '';
  form.payment_date = today;
+ form.notes = '';
  displayAmount.value = '';
  },
  });
@@ -115,6 +118,7 @@ const lumpSumForm = useForm({
  payment_date: today,
  year: props.year,
  due_ids: [],
+ notes: '',
 });
 const lumpSumDisplayAmount = ref('');
 const selectedDueIds = ref([]);
@@ -177,6 +181,7 @@ const openLumpSumModal = (houseRow) => {
  selectedHouse.value = houseRow;
  lumpSumForm.year = props.year;
  lumpSumForm.payment_date = today;
+ lumpSumForm.notes = '';
 
  // Auto-select all unpaid months
  const allUnpaidIds = [];
@@ -221,6 +226,7 @@ const submitLumpSum = () => {
  isLumpSumModalOpen.value = false;
  lumpSumForm.amount = '';
  lumpSumForm.payment_date = today;
+ lumpSumForm.notes = '';
  lumpSumDisplayAmount.value = '';
  selectedDueIds.value = [];
  },
@@ -403,10 +409,10 @@ const confirmSendReminder = () => {
                                     </TableCell>
                                     <TableCell v-for="(data, m) in row.months" :key="m" class="p-1">
                                         <div
-                                            class="h-10 mx-auto flex flex-col items-center justify-center rounded-md transition-all text-[10px] sm:text-xs px-1"
+                                            class="relative h-10 mx-auto flex flex-col items-center justify-center rounded-md transition-all text-[10px] sm:text-xs px-1"
                                             :class="[getStatusColor(data), isDemo ? 'cursor-not-allowed' : 'cursor-pointer hover:brightness-95']"
                                             @click="demoGuard() && openPaymentModal(data, row.name, months[parseInt(m)-1])"
-                                            :title="data.amount > 0 ? `Tagihan: ${formatCurrency(data.bill_amount)}` : 'No Bill'"
+                                            :title="data.manual_notes ? `Keterangan: ${data.manual_notes}` : (data.bill_amount > 0 ? `Tagihan: ${formatCurrency(data.bill_amount)}` : 'No Bill')"
                                         >
                                             <template v-if="data.status !== 'none'">
                                                 <span v-if="data.paid_amount > 0" class="font-bold">{{ formatCurrency(data.paid_amount) }}</span>
@@ -414,6 +420,7 @@ const confirmSendReminder = () => {
                                             </template>
                                             <span v-else-if="row.is_subsidized" class="text-[9px] font-bold text-slate-400">SUBSIDI</span>
                                             <span v-else>•</span>
+                                            <span v-if="data.manual_notes" class="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-blue-400" title="Ada keterangan"></span>
                                         </div>
                                     </TableCell>
                                 </TableRow>
@@ -487,6 +494,19 @@ const confirmSendReminder = () => {
                         <p class="text-[11px] text-muted-foreground">
                             *Tanggal warga melakukan pembayaran (default: hari ini).
                         </p>
+                    </div>
+
+                    <!-- Notes Input -->
+                    <div class="space-y-2">
+                        <Label for="notes" class="text-sm font-semibold">Keterangan <span class="font-normal text-muted-foreground">(opsional)</span></Label>
+                        <Input
+                            id="notes"
+                            v-model="form.notes"
+                            type="text"
+                            class="h-9 text-sm"
+                            placeholder="cth: Pelunasan tunggakan 2025"
+                            maxlength="255"
+                        />
                     </div>
                 </div>
 
@@ -632,6 +652,19 @@ const confirmSendReminder = () => {
                         Kelebihan dicatat sebagai iuran sukarela. Masukkan 0 untuk menghapus pembayaran manual.
                     </p>
                     <p v-if="lumpSumForm.errors.amount" class="text-xs text-red-500 font-medium -mt-1">{{ lumpSumForm.errors.amount }}</p>
+
+                    <!-- Notes Input -->
+                    <div class="space-y-1">
+                        <Label for="lump_notes" class="text-xs font-semibold">Keterangan <span class="font-normal text-muted-foreground">(opsional)</span></Label>
+                        <Input
+                            id="lump_notes"
+                            v-model="lumpSumForm.notes"
+                            type="text"
+                            class="h-9 text-sm"
+                            placeholder="cth: Pelunasan tunggakan 2025"
+                            maxlength="255"
+                        />
+                    </div>
                 </div>
 
                 <DialogFooter class="shrink-0">
