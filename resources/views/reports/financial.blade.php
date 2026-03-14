@@ -222,8 +222,14 @@
             margin-bottom: 5px;
         }
 
-        .signature-space {
-            height: 70px;
+        .signature-box {
+            height: 65px;
+            text-align: center;
+        }
+
+        .signature-box img {
+            height: 60px;
+            width: auto;
         }
 
         .signature-name {
@@ -351,12 +357,16 @@
             <tr>
                 <td>
                     <div class="signature-title">Ketua RT.44</div>
-                    <div class="signature-space"></div>
+                    <div class="signature-box">
+                        <img src="{{ public_path('images/ttd-ketuart.png') }}" alt="TTD Ketua RT">
+                    </div>
                     <div class="signature-name">Aidil Saputra Kirsan</div>
                 </td>
                 <td>
                     <div class="signature-title">Bendahara RT.44</div>
-                    <div class="signature-space"></div>
+                    <div class="signature-box">
+                        <img src="{{ public_path('images/ttd-bendahara.png') }}" alt="TTD Bendahara">
+                    </div>
                     <div class="signature-name">Dios Andri Baskoro</div>
                 </td>
             </tr>

@@ -311,6 +311,77 @@ class AdminController extends Controller
         return $pdf->stream("Kalender_Iuran_RT44_{$year}.pdf");
     }
 
+    public function kartuPreview(Request $request, House $house)
+    {
+        if (!in_array(auth()->user()->role, ['admin', 'demo'])) {
+            return redirect()->route('dashboard');
+        }
+
+        $year = (int) $request->input('year', now()->year);
+
+        $house->load('owner');
+
+        $dues = Due::with(['payments' => function ($q) {
+                $q->where('status', 'verified');
+            }])
+            ->where('house_id', $house->id)
+            ->whereYear('period', $year)
+            ->get()
+            ->keyBy(function ($d) {
+                return Carbon::parse($d->period)->month;
+            });
+
+        $monthNames = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+        ];
+
+        $rows = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $due = $dues->get($m);
+
+            if (!$due) {
+                $rows[] = [
+                    'bulan'        => $monthNames[$m],
+                    'tagihan'      => 0,
+                    'payment_date' => null,
+                    'wajib'        => 0,
+                    'sukarela'     => 0,
+                    'status'       => 'none',
+                    'notes'        => null,
+                ];
+                continue;
+            }
+
+            $verified      = $due->payments;
+            $manualPayment = $verified->where('method', 'manual')->first();
+            $latestPayment = $verified->sortByDesc('payment_date')->first();
+
+            $rows[] = [
+                'bulan'        => $monthNames[$m],
+                'tagihan'      => $due->amount,
+                'payment_date' => $latestPayment ? $latestPayment->payment_date : null,
+                'wajib'        => $verified->sum('amount_wajib'),
+                'sukarela'     => $verified->sum('amount_sukarela'),
+                'status'       => $due->status,
+                'notes'        => $manualPayment ? $manualPayment->notes : null,
+            ];
+        }
+
+        $ttdPath = public_path('images/ttd-bendahara.png');
+        $ttdBase64 = file_exists($ttdPath)
+            ? 'data:image/png;base64,' . base64_encode(file_get_contents($ttdPath))
+            : null;
+
+        return view('reports.kartu', [
+            'house'       => $house,
+            'year'        => $year,
+            'rows'        => $rows,
+            'ttdBendahara' => $ttdBase64,
+        ]);
+    }
+
     public function storePayment(Request $request, Due $due)
     {
         $request->validate([

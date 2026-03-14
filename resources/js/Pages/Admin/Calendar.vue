@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { Search, X, Loader2, ChevronLeft, ChevronRight, Download, Wallet, Calendar as CalendarIcon } from 'lucide-vue-next';
+import { Search, X, Loader2, ChevronLeft, ChevronRight, Download, Wallet, Calendar as CalendarIcon, FileText } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
 const props = defineProps({
@@ -70,6 +70,10 @@ const openPaymentModal = (dueData, houseName, monthName) => {
  displayAmount.value = initialAmount > 0 ? formatNumber(initialAmount) : '';
 
  isModalOpen.value = true;
+};
+
+const openKartu = (houseId) => {
+    window.open(route('admin.kartu', { house: houseId, year: props.year }), '_blank');
 };
 
 const formatNumber = (num) => {
@@ -384,6 +388,13 @@ const confirmSendReminder = () => {
                                                 <div class="text-[10px] text-muted-foreground font-normal truncate max-w-[100px]">{{ row.owner }}</div>
                                             </div>
                                             <div class="flex items-center gap-1">
+                                                <button
+                                                    @click.stop="openKartu(row.id)"
+                                                    class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-slate-500 hover:bg-slate-600 text-white transition-colors shadow-sm"
+                                                    title="Kartu Iuran"
+                                                >
+                                                    <FileText class="w-3.5 h-3.5" />
+                                                </button>
                                                 <button
                                                     v-if="row.total_unpaid > 0"
                                                     @click.stop="demoGuard() && openLumpSumModal(row)"

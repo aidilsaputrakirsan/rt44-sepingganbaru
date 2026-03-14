@@ -4,7 +4,8 @@
       "Bash(php artisan tinker:*)",
       "Bash(php:*)",
       "Bash(del:*)",
-      "Bash(npx vite build:*)"
+      "Bash(npx vite build:*)",
+      "Bash(identify \"c:/laragon/www/Materi-Presentasi/rt44-sepingganbaru/public/logort.png\")"
     ]
   }
 }

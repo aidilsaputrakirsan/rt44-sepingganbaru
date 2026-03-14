@@ -30,6 +30,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/tagihan', [AdminController::class, 'tagihan'])->name('admin.tagihan');
     Route::get('/admin/calendar', [AdminController::class, 'calendar'])->name('admin.calendar');
     Route::get('/admin/calendar/export-pdf', [AdminController::class, 'exportCalendarPdf'])->name('admin.calendar.export-pdf');
+    Route::get('/admin/kartu/{house}', [AdminController::class, 'kartuPreview'])->name('admin.kartu');
     Route::post('/admin/payment/house/{house}', [AdminController::class, 'storeLumpSumPayment'])->name('admin.payment.lump-sum');
     Route::post('/admin/payment/{due}', [AdminController::class, 'storePayment'])->name('admin.payment.store');
     Route::patch('/admin/due/{due}', [AdminController::class, 'updateDue'])->name('admin.due.update');
