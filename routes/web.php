@@ -44,9 +44,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/admin/warga', [\App\Http\Controllers\WargaController::class, 'store'])->name('admin.warga.store');
     Route::put('/admin/warga/{house}', [\App\Http\Controllers\WargaController::class, 'update'])->name('admin.warga.update');
     Route::post('/admin/warga/{house}/recalculate', [\App\Http\Controllers\WargaController::class, 'recalculateDues'])->name('admin.warga.recalculate');
+    Route::get('/admin/warga/{house}/koreksi-tagihan', [\App\Http\Controllers\WargaController::class, 'duesForKoreksi'])->name('admin.warga.koreksi.dues');
+    Route::post('/admin/warga/{house}/koreksi-tagihan', [\App\Http\Controllers\WargaController::class, 'koreksiTagihan'])->name('admin.warga.koreksi.submit');
     Route::delete('/admin/warga/{house}', [\App\Http\Controllers\WargaController::class, 'destroy'])->name('admin.warga.destroy');
     Route::post('/admin/warga/import', [\App\Http\Controllers\WargaController::class, 'import'])->name('admin.warga.import');
     Route::get('/admin/warga/download-template', [\App\Http\Controllers\WargaController::class, 'downloadTemplate'])->name('admin.warga.template');
+    Route::get('/admin/warga/export-status-pdf', [\App\Http\Controllers\WargaController::class, 'exportStatusPdf'])->name('admin.warga.export-status-pdf');
 
     // Expense Routes
     Route::get('/admin/expenses', [\App\Http\Controllers\ExpenseController::class, 'index'])->name('admin.expenses.index');

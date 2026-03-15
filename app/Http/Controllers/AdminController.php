@@ -232,12 +232,14 @@ class AdminController extends Controller
                     $manualPayment = $monthDue->payments->where('method', 'manual')->first();
                     $manualPaymentId = $manualPayment ? $manualPayment->id : null;
                     $manualNotes = $manualPayment ? $manualPayment->notes : null;
+                    $manualPaymentDate = $manualPayment ? \Carbon\Carbon::parse($manualPayment->payment_date)->format('Y-m-d') : null;
                 }
 
                 $data['months'][$m] = [
                     'due_id' => $monthDue ? $monthDue->id : null,
                     'manual_payment_id' => $manualPaymentId,
                     'manual_notes' => $manualNotes,
+                    'manual_payment_date' => $manualPaymentDate ?? null,
                     'status' => $monthDue ? $monthDue->status : 'none',
                     'bill_amount' => $monthDue ? $monthDue->amount : 0,
                     'paid_amount' => $paidAmount,

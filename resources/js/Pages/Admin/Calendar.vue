@@ -65,7 +65,7 @@ const openPaymentModal = (dueData, houseName, monthName) => {
  const initialAmount = dueData.paid_amount > 0 ? dueData.paid_amount : (selectedDue.value.remaining > 0 ? selectedDue.value.remaining : 0);
 
  form.amount = initialAmount;
- form.payment_date = today;
+ form.payment_date = dueData.manual_payment_date || today;
  form.notes = dueData.manual_notes || '';
  displayAmount.value = initialAmount > 0 ? formatNumber(initialAmount) : '';
 
@@ -503,7 +503,7 @@ const confirmSendReminder = () => {
                             :max="today"
                         />
                         <p class="text-[11px] text-muted-foreground">
-                            *Tanggal warga melakukan pembayaran (default: hari ini).
+                            {{ selectedDue?.is_edit ? '*Tanggal tercatat dari input sebelumnya. Ubah jika perlu koreksi.' : '*Tanggal aktual pembayaran diterima (default: hari ini).' }}
                         </p>
                     </div>
 

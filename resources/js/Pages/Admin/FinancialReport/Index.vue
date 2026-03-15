@@ -20,6 +20,7 @@ const props = defineProps({
 const { isDemo, demoGuard } = useDemoGuard();
 
 const isModalOpen = ref(false);
+const isBreakdownOpen = ref(false);
 const displayAmount = ref('');
 
 const balanceForm = useForm({
@@ -150,10 +151,17 @@ const exportPdf = () => {
  <CardTitle class="text-xl font-bold">{{ formatCurrency(report.saldo_awal) }}</CardTitle>
  </CardHeader>
  </Card>
- <Card class="border-l-4 border-l-green-500">
+ <Card
+  class="border-l-4 border-l-green-500 cursor-pointer hover:shadow-md hover:border-l-green-600 transition-all"
+  @click="isBreakdownOpen = true"
+  title="Klik untuk lihat rincian per rumah"
+ >
  <CardHeader class="pb-2">
- <CardDescription>Total Pemasukan</CardDescription>
- <CardTitle class="text-xl font-bold text-green-600">+ {{ formatCurrency(report.total_income) }}</CardTitle>
+  <CardDescription class="flex items-center gap-1">
+   Total Pemasukan
+   <span class="text-[10px] text-green-500 font-medium">(klik untuk rincian)</span>
+  </CardDescription>
+  <CardTitle class="text-xl font-bold text-green-600">+ {{ formatCurrency(report.total_income) }}</CardTitle>
  </CardHeader>
  </Card>
  <Card class="border-l-4 border-l-red-500">
@@ -347,6 +355,81 @@ const exportPdf = () => {
  </div>
  </DialogContent>
   </Dialog>
+  <!-- Modal Rincian Pemasukan Per Rumah -->
+  <Dialog v-model:open="isBreakdownOpen">
+   <DialogContent class="sm:max-w-[680px] max-h-[85vh] flex flex-col">
+    <DialogHeader>
+     <DialogTitle class="flex items-center gap-2 text-green-700">
+      <TrendingUp class="w-5 h-5" />
+      Rincian Pemasukan — {{ report.period_label }}
+     </DialogTitle>
+     <DialogDescription>
+      Daftar pembayaran terverifikasi berdasarkan tanggal pembayaran diterima.
+      Total: <strong class="text-green-700">{{ formatCurrency(report.total_income) }}</strong>
+      dari <strong>{{ report.income_breakdown.length }}</strong> transaksi.
+     </DialogDescription>
+    </DialogHeader>
+
+    <div class="overflow-auto flex-1 -mx-1 px-1">
+     <div v-if="report.income_breakdown.length === 0" class="text-center py-10 text-slate-400 text-sm">
+      Tidak ada pemasukan di bulan ini.
+     </div>
+     <table v-else class="w-full text-sm border-collapse">
+      <thead class="sticky top-0 bg-white z-10">
+       <tr class="border-b-2 border-slate-200 text-slate-600 text-xs uppercase tracking-wide">
+        <th class="p-2 text-left">Rumah</th>
+        <th class="p-2 text-left">Tagihan Bulan</th>
+        <th class="p-2 text-left">Tgl Bayar</th>
+        <th class="p-2 text-right">Wajib</th>
+        <th class="p-2 text-right">Sukarela</th>
+        <th class="p-2 text-right font-bold">Total</th>
+       </tr>
+      </thead>
+      <tbody>
+       <tr
+        v-for="(item, i) in report.income_breakdown"
+        :key="i"
+        class="border-b border-slate-100 hover:bg-green-50/40"
+       >
+        <td class="p-2 font-bold text-indigo-600">{{ item.rumah }}</td>
+        <td class="p-2 text-slate-500">{{ item.period }}</td>
+        <td class="p-2 text-slate-500">{{ item.payment_date }}</td>
+        <td class="p-2 text-right">{{ formatCurrency(item.amount_wajib) }}</td>
+        <td class="p-2 text-right text-slate-400">
+         <span v-if="item.amount_sukarela > 0">{{ formatCurrency(item.amount_sukarela) }}</span>
+         <span v-else class="text-slate-300">—</span>
+        </td>
+        <td class="p-2 text-right font-semibold text-green-700">{{ formatCurrency(item.total) }}</td>
+       </tr>
+      </tbody>
+      <tfoot>
+       <tr class="border-t-2 border-slate-300 bg-slate-50 font-bold">
+        <td class="p-2" colspan="3">Total</td>
+        <td class="p-2 text-right">{{ formatCurrency(report.income_wajib) }}</td>
+        <td class="p-2 text-right">{{ formatCurrency(report.income_sukarela) }}</td>
+        <td class="p-2 text-right text-green-700">{{ formatCurrency(report.total_income) }}</td>
+       </tr>
+      </tfoot>
+     </table>
+
+     <div v-if="report.income_breakdown.some(i => i.notes)" class="mt-4 space-y-1">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Keterangan</p>
+      <div
+       v-for="(item, i) in report.income_breakdown.filter(i => i.notes)"
+       :key="'note-' + i"
+       class="text-xs text-slate-500 italic"
+      >
+       <span class="font-semibold not-italic text-slate-700">{{ item.rumah }}</span> — {{ item.notes }}
+      </div>
+     </div>
+    </div>
+
+    <DialogFooter class="pt-3 border-t">
+     <Button variant="outline" @click="isBreakdownOpen = false">Tutup</Button>
+    </DialogFooter>
+   </DialogContent>
+  </Dialog>
+
   <DemoToast />
   </AuthenticatedLayout>
 </template>

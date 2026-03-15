@@ -87,13 +87,36 @@ class FinancialReportController extends Controller
             $saldoAwal = $this->calculateSaldoAkhir($period->copy()->subMonth());
         }
 
-        $incomeData = Payment::where('status', 'verified')
+        $incomeData = Payment::with(['due.house'])
+            ->where('status', 'verified')
             ->whereYear('payment_date', $year)
             ->whereMonth('payment_date', $month)
             ->get();
 
         $totalWajib = $incomeData->sum('amount_wajib');
         $totalSukarela = $incomeData->sum('amount_sukarela');
+
+        // Breakdown per rumah untuk modal detail
+        $incomeBreakdown = $incomeData
+            ->sortBy(function ($p) {
+                $house = $p->due?->house;
+                if (!$house) return 'ZZZ';
+                preg_match('/^([A-Za-z]+)(\d*)/', $house->blok, $m);
+                return ($m[1] ?? '') . str_pad($m[2] ?? '0', 5, '0', STR_PAD_LEFT) . str_pad($house->nomor, 5, '0', STR_PAD_LEFT);
+            })
+            ->map(function ($p) {
+                $house = $p->due?->house;
+                return [
+                    'rumah'          => $house ? $house->blok . '/' . $house->nomor : '—',
+                    'period'         => $p->due ? Carbon::parse($p->due->period)->translatedFormat('M Y') : '—',
+                    'payment_date'   => Carbon::parse($p->payment_date)->isoFormat('D MMM Y'),
+                    'amount_wajib'   => (float) $p->amount_wajib,
+                    'amount_sukarela'=> (float) $p->amount_sukarela,
+                    'total'          => (float) $p->amount_wajib + (float) $p->amount_sukarela,
+                    'notes'          => $p->notes ?? '',
+                ];
+            })
+            ->values();
 
         $expenses = Expense::whereYear('date', $year)
             ->whereMonth('date', $month)
@@ -112,6 +135,7 @@ class FinancialReportController extends Controller
             'income_wajib' => (float) $totalWajib,
             'income_sukarela' => (float) $totalSukarela,
             'total_income' => (float) $totalPemasukan,
+            'income_breakdown' => $incomeBreakdown,
             'expenses' => $expenses,
             'total_expenses' => (float) $totalExpenses,
             'saldo_akhir' => (float) $saldoAkhir,

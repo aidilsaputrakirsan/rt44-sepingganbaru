@@ -18,7 +18,7 @@ import {
  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/Components/ui/select';
 import {
- Users, Plus, Trash2, Edit2, Upload, FileText, AlertCircle, Search, X, FileSpreadsheet
+ Users, Plus, Trash2, Edit2, Upload, FileText, AlertCircle, Search, X, FileSpreadsheet, Wrench, FileDown
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -141,6 +141,76 @@ const handleImport = () => {
  });
 };
 
+// ── Koreksi Tagihan ──────────────────────────────────────────
+const isKoreksiOpen   = ref(false);
+const koreksiHouse    = ref(null);
+const koreksiDues     = ref([]);
+const koreksiLoading  = ref(false);
+const koreksiChecked  = ref(new Set());
+const koreksiAmounts  = ref({});
+
+const monthName = (period) => {
+    const d = new Date(period + 'T00:00:00');
+    return d.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
+};
+
+const formatRp = (val) => 'Rp ' + Number(val).toLocaleString('id-ID');
+
+const openKoreksiModal = async (house) => {
+    if (!demoGuard()) return;
+    koreksiHouse.value  = house;
+    koreksiDues.value   = [];
+    koreksiChecked.value = new Set();
+    koreksiAmounts.value = {};
+    koreksiLoading.value = true;
+    isKoreksiOpen.value  = true;
+
+    try {
+        const res = await fetch(route('admin.warga.koreksi.dues', house.id));
+        const data = await res.json();
+        koreksiDues.value = data.dues;
+        // pre-fill amounts & check all correctable months
+        data.dues.forEach(d => {
+            koreksiAmounts.value[d.id] = d.suggested;
+            if ((d.status === 'unpaid' || d.status === 'overdue') && d.amount !== d.suggested) {
+                koreksiChecked.value.add(d.id);
+            }
+        });
+    } finally {
+        koreksiLoading.value = false;
+    }
+};
+
+const toggleKoreksi = (id) => {
+    if (koreksiChecked.value.has(id)) koreksiChecked.value.delete(id);
+    else koreksiChecked.value.add(id);
+    // trigger reactivity
+    koreksiChecked.value = new Set(koreksiChecked.value);
+};
+
+const toggleAllKoreksi = (e) => {
+    if (e.target.checked) {
+        koreksiDues.value
+            .filter(d => d.status === 'unpaid' || d.status === 'overdue')
+            .forEach(d => koreksiChecked.value.add(d.id));
+    } else {
+        koreksiChecked.value.clear();
+    }
+    koreksiChecked.value = new Set(koreksiChecked.value);
+};
+
+const submitKoreksi = () => {
+    if (koreksiChecked.value.size === 0) return;
+    const corrections = [...koreksiChecked.value].map(id => ({
+        due_id: id,
+        amount: parseInt(koreksiAmounts.value[id]) || 0,
+    }));
+    router.post(route('admin.warga.koreksi.submit', koreksiHouse.value.id),
+        { corrections },
+        { preserveScroll: true, onSuccess: () => { isKoreksiOpen.value = false; } }
+    );
+};
+
 const getResidentStatusLabel = (status) => {
  if (status === 'pemilik') return 'Pemilik';
  if (status === 'kontrak') return 'Kontrak';
@@ -152,6 +222,34 @@ const getResidentStatusVariant = (status) => {
  if (status === 'kontrak') return 'outline';
  return 'outline';
 };
+
+// ── Statistik ────────────────────────────────────────────────
+const isStatsOpen = ref(false);
+
+const stats = computed(() => {
+ const all = props.houses;
+ const blokPrefix = (blok) => blok.match(/^[A-Za-z]+/)?.[0]?.toUpperCase() || '?';
+ const prefixes = [...new Set(all.map(h => blokPrefix(h.blok)))].sort();
+
+ return {
+  total:        all.length,
+  berpenghuni:  all.filter(h => h.status_huni === 'berpenghuni').length,
+  kosong:       all.filter(h => h.status_huni === 'kosong').length,
+  pemilik:      all.filter(h => h.resident_status === 'pemilik').length,
+  kontrak:      all.filter(h => h.resident_status === 'kontrak').length,
+  belum:        all.filter(h => !h.resident_status || h.resident_status === 'belum_diketahui').length,
+  subsidized:   all.filter(h => h.is_subsidized).length,
+  perBlok: prefixes.map(p => ({
+   prefix: p,
+   total:       all.filter(h => blokPrefix(h.blok) === p).length,
+   berpenghuni: all.filter(h => blokPrefix(h.blok) === p && h.status_huni === 'berpenghuni').length,
+   kosong:      all.filter(h => blokPrefix(h.blok) === p && h.status_huni === 'kosong').length,
+   pemilik:     all.filter(h => blokPrefix(h.blok) === p && h.resident_status === 'pemilik').length,
+   kontrak:     all.filter(h => blokPrefix(h.blok) === p && h.resident_status === 'kontrak').length,
+   belum:       all.filter(h => blokPrefix(h.blok) === p && (!h.resident_status || h.resident_status === 'belum_diketahui')).length,
+  })),
+ };
+});
 </script>
 
 <template>
@@ -188,6 +286,39 @@ const getResidentStatusVariant = (status) => {
  <!-- Data Table -->
  <div class="bg-white overflow-hidden shadow-xl sm:rounded-2xl border border-slate-200">
  <div class="p-6">
+ <!-- Stats Bar -->
+ <div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
+  <div class="flex flex-wrap gap-2 flex-1">
+   <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 font-medium">
+    Total <strong>{{ stats.total }}</strong> rumah
+   </span>
+   <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-50 text-green-700">
+    Berpenghuni <strong>{{ stats.berpenghuni }}</strong>
+   </span>
+   <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-slate-500 border border-slate-200">
+    Kosong <strong>{{ stats.kosong }}</strong>
+   </span>
+   <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-600">
+    Pemilik <strong>{{ stats.pemilik }}</strong>
+   </span>
+   <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700">
+    Kontrak <strong>{{ stats.kontrak }}</strong>
+   </span>
+   <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-slate-400 border border-slate-200">
+    Belum diketahui <strong>{{ stats.belum }}</strong>
+   </span>
+  </div>
+  <Button variant="outline" size="sm" class="text-xs shrink-0" @click="isStatsOpen = true">
+   Per Blok
+  </Button>
+  <a :href="route('admin.warga.export-status-pdf')" target="_blank">
+   <Button variant="outline" size="sm" class="text-xs gap-1.5 text-green-700 border-green-300 hover:bg-green-50">
+    <FileDown class="w-3.5 h-3.5" />
+    PDF Status Hunian
+   </Button>
+  </a>
+ </div>
+
  <!-- Search -->
  <div class="mb-4 relative max-w-xs">
  <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -261,6 +392,17 @@ const getResidentStatusVariant = (status) => {
   title="Edit data warga"
   >
   <Edit2 class="w-4 h-4" />
+  </Button>
+  <Button
+  v-if="!house.is_subsidized"
+  variant="ghost"
+  size="icon"
+  class="h-8 w-8 text-slate-500 hover:text-amber-600"
+  :class="isDemo ? 'cursor-not-allowed' : ''"
+  @click.stop="openKoreksiModal(house)"
+  title="Koreksi tagihan bulan tertentu"
+  >
+  <Wrench class="w-4 h-4" />
   </Button>
   <button
   class="h-8 w-8 text-slate-500 hover:text-red-600 flex items-center justify-center rounded-md hover:bg-slate-100 transition-colors"
@@ -537,6 +679,134 @@ const getResidentStatusVariant = (status) => {
  </Button>
  </DialogFooter>
  </DialogContent>
+ </Dialog>
+
+ <!-- Statistik Per Blok Modal -->
+ <Dialog v-model:open="isStatsOpen">
+  <DialogContent class="sm:max-w-[480px]">
+   <DialogHeader>
+    <DialogTitle>Statistik Per Blok</DialogTitle>
+    <DialogDescription>Rincian jumlah rumah berdasarkan blok, status huni, dan kepemilikan.</DialogDescription>
+   </DialogHeader>
+   <div class="overflow-auto max-h-[60vh]">
+    <table class="w-full text-sm">
+     <thead>
+      <tr class="border-b bg-slate-50 text-slate-600 text-center">
+       <th class="p-2 text-left">Blok</th>
+       <th class="p-2">Total</th>
+       <th class="p-2 text-green-700">Huni</th>
+       <th class="p-2 text-slate-500">Kosong</th>
+       <th class="p-2 text-indigo-600">Pemilik</th>
+       <th class="p-2 text-amber-600">Kontrak</th>
+       <th class="p-2 text-slate-400">TBD</th>
+      </tr>
+     </thead>
+     <tbody>
+      <tr v-for="b in stats.perBlok" :key="b.prefix" class="border-b hover:bg-slate-50 text-center">
+       <td class="p-2 font-bold text-left text-indigo-600">Blok {{ b.prefix }}</td>
+       <td class="p-2 font-semibold">{{ b.total }}</td>
+       <td class="p-2 text-green-700">{{ b.berpenghuni }}</td>
+       <td class="p-2 text-slate-500">{{ b.kosong }}</td>
+       <td class="p-2 text-indigo-600">{{ b.pemilik }}</td>
+       <td class="p-2 text-amber-600">{{ b.kontrak }}</td>
+       <td class="p-2 text-slate-400">{{ b.belum }}</td>
+      </tr>
+      <tr class="border-t-2 font-bold bg-slate-50 text-center">
+       <td class="p-2 text-left">Total</td>
+       <td class="p-2">{{ stats.total }}</td>
+       <td class="p-2 text-green-700">{{ stats.berpenghuni }}</td>
+       <td class="p-2 text-slate-500">{{ stats.kosong }}</td>
+       <td class="p-2 text-indigo-600">{{ stats.pemilik }}</td>
+       <td class="p-2 text-amber-600">{{ stats.kontrak }}</td>
+       <td class="p-2 text-slate-400">{{ stats.belum }}</td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <DialogFooter>
+    <Button variant="outline" @click="isStatsOpen = false">Tutup</Button>
+   </DialogFooter>
+  </DialogContent>
+ </Dialog>
+
+ <!-- Koreksi Tagihan Modal -->
+ <Dialog v-model:open="isKoreksiOpen">
+  <DialogContent class="sm:max-w-[580px] max-h-[85vh] flex flex-col">
+   <DialogHeader>
+    <DialogTitle class="flex items-center gap-2 text-amber-600">
+     <Wrench class="w-5 h-5" />
+     Koreksi Tagihan — {{ koreksiHouse?.blok }}/{{ koreksiHouse?.nomor }}
+    </DialogTitle>
+    <DialogDescription>
+     Pilih bulan yang ingin dikoreksi nominalnya. Hanya tagihan <strong>belum lunas</strong> yang bisa diubah.
+    </DialogDescription>
+   </DialogHeader>
+
+   <div v-if="koreksiLoading" class="flex justify-center py-10 text-slate-400 text-sm">
+    Memuat data tagihan...
+   </div>
+
+   <div v-else class="overflow-auto flex-1">
+    <table class="w-full text-sm">
+     <thead>
+      <tr class="border-b bg-slate-50 text-slate-600">
+       <th class="p-2 text-left w-8">
+        <input type="checkbox" @change="toggleAllKoreksi" title="Pilih semua" />
+       </th>
+       <th class="p-2 text-left">Bulan</th>
+       <th class="p-2 text-right">Tagihan Saat Ini</th>
+       <th class="p-2 text-right">Nominal Baru</th>
+      </tr>
+     </thead>
+     <tbody>
+      <tr
+       v-for="due in koreksiDues"
+       :key="due.id"
+       class="border-b"
+       :class="due.status === 'paid' ? 'opacity-40' : 'hover:bg-slate-50'"
+      >
+       <td class="p-2">
+        <input
+         type="checkbox"
+         :disabled="due.status === 'paid'"
+         :checked="koreksiChecked.has(due.id)"
+         @change="toggleKoreksi(due.id)"
+        />
+       </td>
+       <td class="p-2 font-medium">
+        {{ monthName(due.period) }}
+        <span v-if="due.status === 'paid'" class="ml-1 text-[10px] text-green-600 font-semibold">LUNAS</span>
+       </td>
+       <td class="p-2 text-right text-slate-500">{{ formatRp(due.amount) }}</td>
+       <td class="p-2 text-right">
+        <input
+         v-if="due.status !== 'paid'"
+         type="number"
+         min="0"
+         step="1000"
+         class="w-28 border rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+         :disabled="!koreksiChecked.has(due.id)"
+         :class="!koreksiChecked.has(due.id) ? 'bg-slate-50 text-slate-400' : ''"
+         v-model.number="koreksiAmounts[due.id]"
+        />
+        <span v-else class="text-slate-400">—</span>
+       </td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+
+   <DialogFooter class="pt-3 border-t gap-2 sm:gap-0">
+    <Button variant="outline" @click="isKoreksiOpen = false">Batal</Button>
+    <Button
+     :disabled="koreksiChecked.size === 0"
+     class="bg-amber-500 hover:bg-amber-600 text-white"
+     @click="submitKoreksi"
+    >
+     Simpan Koreksi ({{ koreksiChecked.size }} bulan)
+    </Button>
+   </DialogFooter>
+  </DialogContent>
  </Dialog>
 
  <DemoToast />

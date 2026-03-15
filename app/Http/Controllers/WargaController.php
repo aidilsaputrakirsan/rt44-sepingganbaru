@@ -214,6 +214,71 @@ class WargaController extends Controller
         return back()->with('success', "Berhasil recalculate {$updated} tagihan rumah {$house->blok}/{$house->nomor} menjadi Rp " . number_format($newAmount, 0, ',', '.'));
     }
 
+    public function exportStatusPdf()
+    {
+        $houses = House::orderByRaw("REGEXP_SUBSTR(blok, '^[A-Za-z]+') ASC")
+            ->orderByRaw("CAST(REGEXP_SUBSTR(blok, '[0-9]+') AS UNSIGNED) ASC")
+            ->orderByRaw('CAST(nomor AS UNSIGNED) ASC')
+            ->orderBy('nomor')
+            ->get();
+
+        $grouped = $houses->groupBy(function ($h) {
+            return strtoupper(preg_match('/^[A-Za-z]+/', $h->blok, $m) ? $m[0] : '?');
+        })->sortKeys();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.warga-status', [
+            'grouped'   => $grouped,
+            'allHouses' => $houses,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download('status-rumah-rt44-' . now()->format('Y-m-d') . '.pdf');
+    }
+
+    public function duesForKoreksi(House $house)
+    {
+        $suggested = \App\Services\DuesService::calculate($house);
+
+        $dues = \App\Models\Due::where('house_id', $house->id)
+            ->orderBy('period')
+            ->get()
+            ->map(function ($due) use ($suggested) {
+                return [
+                    'id'         => $due->id,
+                    'period'     => $due->period,
+                    'amount'     => $due->amount,
+                    'status'     => $due->status,
+                    'suggested'  => $suggested,
+                ];
+            });
+
+        return response()->json([
+            'house'     => $house->blok . '/' . $house->nomor,
+            'status_huni' => $house->status_huni,
+            'suggested' => $suggested,
+            'dues'      => $dues,
+        ]);
+    }
+
+    public function koreksiTagihan(Request $request, House $house)
+    {
+        $validated = $request->validate([
+            'corrections'           => 'required|array|min:1',
+            'corrections.*.due_id'  => 'required|integer|exists:dues,id',
+            'corrections.*.amount'  => 'required|integer|min:0',
+        ]);
+
+        $updated = 0;
+        foreach ($validated['corrections'] as $item) {
+            $rows = \App\Models\Due::where('id', $item['due_id'])
+                ->where('house_id', $house->id)
+                ->whereIn('status', ['unpaid', 'overdue'])
+                ->update(['amount' => $item['amount']]);
+            $updated += $rows;
+        }
+
+        return back()->with('success', "Berhasil mengkoreksi {$updated} tagihan rumah {$house->blok}/{$house->nomor}.");
+    }
+
     public function destroy(House $house)
     {
         $house->delete();
