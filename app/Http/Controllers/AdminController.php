@@ -266,7 +266,19 @@ class AdminController extends Controller
 
     public function exportCalendarPdf(Request $request)
     {
-        $year = $request->input('year', now()->year);
+        $year = (int) $request->input('year', now()->year);
+        $currentYear = (int) now()->year;
+        $currentMonth = (int) now()->month;
+
+        // Cutoff bulan untuk perhitungan utang
+        // Bulan berjalan belum dihitung — hanya s.d. bulan lalu
+        if ($year < $currentYear) {
+            $debtCutoffMonth = 12;
+        } elseif ($year > $currentYear) {
+            $debtCutoffMonth = 0;
+        } else {
+            $debtCutoffMonth = $currentMonth - 1; // April → hitung s.d. Maret
+        }
 
         $houses = House::with('owner')
             ->orderByRaw("REGEXP_SUBSTR(blok, '^[A-Za-z]+') ASC")
@@ -283,31 +295,64 @@ class AdminController extends Controller
             return $d->house_id . '-' . Carbon::parse($d->period)->month;
         });
 
-        $calendar = $houses->map(function ($house) use ($duesGrouped) {
+        $calendar = $houses->map(function ($house) use ($duesGrouped, $debtCutoffMonth) {
             $data = [
                 'name' => $house->blok . '/' . $house->nomor,
                 'is_subsidized' => (bool)$house->is_subsidized,
-                'months' => []
+                'months' => [],
+                'total_debt' => 0,
             ];
+
+            // Cari bulan pertama ada pembayaran (firstPaidMonth)
+            // Utang hanya dihitung mulai dari bulan tersebut ke depan
+            $firstPaidMonth = null;
+            for ($m = 1; $m <= 12; $m++) {
+                $monthDue = $duesGrouped->get($house->id . '-' . $m);
+                if ($monthDue) {
+                    $paid = $monthDue->payments->where('status', 'verified')->sum('amount_paid');
+                    if ($paid > 0) {
+                        $firstPaidMonth = $m;
+                        break;
+                    }
+                }
+            }
+            // Jika belum pernah bayar sama sekali, utang dihitung dari bulan 1
+            $debtStartMonth = $firstPaidMonth ?? 1;
 
             for ($m = 1; $m <= 12; $m++) {
                 $monthDue = $duesGrouped->get($house->id . '-' . $m);
                 $paidAmount = 0;
+                $billAmount = 0;
                 if ($monthDue) {
                     $paidAmount = $monthDue->payments->where('status', 'verified')->sum('amount_paid');
+                    $billAmount = (float) $monthDue->amount;
                 }
 
                 $data['months'][$m] = [
-                    'status' => $monthDue ? $monthDue->status : 'none',
+                    'status'      => $monthDue ? $monthDue->status : 'none',
+                    'bill_amount' => $billAmount,
                     'paid_amount' => $paidAmount,
                 ];
+
+                // Akumulasi utang: hanya bulan >= firstPaidMonth, <= cutoff, belum lunas
+                if ($monthDue && $monthDue->status !== 'paid'
+                    && $m >= $debtStartMonth
+                    && $m <= $debtCutoffMonth
+                ) {
+                    $data['total_debt'] += max(0, $billAmount - $paidAmount);
+                }
             }
+
             return $data;
         })->toArray();
 
+        $totalDebtAll = array_sum(array_column($calendar, 'total_debt'));
+
         $pdf = Pdf::loadView('reports.calendar', [
-            'calendar' => $calendar,
-            'year' => (int) $year,
+            'calendar'     => $calendar,
+            'year'         => $year,
+            'generatedAt'  => now()->translatedFormat('d F Y'),
+            'totalDebtAll' => $totalDebtAll,
         ])->setPaper('a4', 'landscape');
 
         return $pdf->stream("Kalender_Iuran_RT44_{$year}.pdf");
