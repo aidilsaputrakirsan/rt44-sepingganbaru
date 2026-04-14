@@ -179,6 +179,15 @@ class AdminController extends Controller
 
         $due->update(['amount' => $request->amount]);
 
+        // Recalculate status berdasarkan nominal baru
+        $totalPaidWajib = $due->payments()->where('status', 'verified')->sum('amount_wajib');
+        if ((float) $request->amount > 0 && $totalPaidWajib >= (float) $request->amount) {
+            $due->update(['status' => 'paid']);
+        } elseif ($due->status === 'paid') {
+            // Nominal dinaikkan melebihi yang sudah dibayar → kembalikan ke unpaid
+            $due->update(['status' => 'unpaid']);
+        }
+
         return back()->with('success', 'Nominal tagihan berhasil diperbarui.');
     }
 

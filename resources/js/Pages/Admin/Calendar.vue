@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { Search, X, Loader2, ChevronLeft, ChevronRight, Download, Wallet, Calendar as CalendarIcon, FileText } from 'lucide-vue-next';
+import { Search, X, Loader2, ChevronLeft, ChevronRight, Download, Wallet, Calendar as CalendarIcon, FileText, Pencil } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
 const props = defineProps({
@@ -111,6 +111,42 @@ const submitPayment = () => {
  form.notes = '';
  displayAmount.value = '';
  },
+ });
+};
+
+// --- Koreksi Nominal Tagihan ---
+const isEditingDueAmount = ref(false);
+const editDueForm = useForm({ amount: '' });
+const displayEditAmount = ref('');
+
+const openEditDueAmount = () => {
+ editDueForm.amount = selectedDue.value.bill_amount;
+ displayEditAmount.value = formatNumber(selectedDue.value.bill_amount);
+ isEditingDueAmount.value = true;
+};
+
+const handleEditAmountInput = (e) => {
+ let value = e.target.value.replace(/\./g, '');
+ if (value === '') {
+  editDueForm.amount = '';
+  displayEditAmount.value = '';
+  return;
+ }
+ if (!/^\d+$/.test(value)) return;
+ const num = parseInt(value, 10);
+ editDueForm.amount = num;
+ displayEditAmount.value = formatNumber(num);
+};
+
+const submitEditDueAmount = () => {
+ if (!selectedDue.value || editDueForm.amount === '') return;
+ editDueForm.patch(route('admin.due.update', selectedDue.value.id), {
+  onSuccess: () => {
+   isModalOpen.value = false;
+   isEditingDueAmount.value = false;
+   editDueForm.amount = '';
+   displayEditAmount.value = '';
+  },
  });
 };
 
@@ -443,7 +479,7 @@ const confirmSendReminder = () => {
         </div>
 
         <!-- Manual Payment Modal (per bulan) -->
-        <Dialog :open="isModalOpen" @update:open="isModalOpen = $event">
+        <Dialog :open="isModalOpen" @update:open="val => { isModalOpen = val; if (!val) isEditingDueAmount = false; }">
             <DialogContent class="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>{{ selectedDue?.is_edit ? 'Ubah Pembayaran' : 'Input Pembayaran Manual' }}</DialogTitle>
@@ -471,6 +507,42 @@ const confirmSendReminder = () => {
                         <div v-if="selectedDue.remaining > 0" class="flex justify-between items-center text-sm">
                             <span class="text-muted-foreground font-medium">Sisa Tagihan</span>
                             <span class="text-red-500 font-bold">{{ formatCurrency(selectedDue.remaining) }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Koreksi Nominal Tagihan -->
+                    <div class="rounded-lg border border-dashed border-amber-200 bg-amber-50/50 p-3">
+                        <button
+                            type="button"
+                            @click="isEditingDueAmount = !isEditingDueAmount"
+                            class="flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-900 font-medium w-full"
+                        >
+                            <Pencil class="w-3 h-3" />
+                            Koreksi Nominal Tagihan
+                            <span class="ml-auto text-amber-400 text-[10px]">{{ isEditingDueAmount ? '▲ tutup' : '▼ buka' }}</span>
+                        </button>
+                        <div v-if="isEditingDueAmount" class="mt-3 space-y-2">
+                            <Input
+                                :modelValue="displayEditAmount"
+                                @input="handleEditAmountInput"
+                                type="text"
+                                class="h-9 text-sm font-bold"
+                                placeholder="Nominal baru"
+                            />
+                            <p class="text-[10px] text-amber-700/80">
+                                *Ubah jika nominal tagihan salah (misal tercatat 160k padahal seharusnya 110k). Jika nominal baru ≤ yang sudah dibayar, status otomatis jadi <b>Lunas</b>.
+                            </p>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                class="w-full border-amber-300 text-amber-800 hover:bg-amber-100 text-xs"
+                                :disabled="editDueForm.processing || editDueForm.amount === ''"
+                                @click="demoGuard() && submitEditDueAmount()"
+                            >
+                                Simpan Koreksi Nominal
+                            </Button>
+                            <p v-if="editDueForm.errors.amount" class="text-xs text-red-500">{{ editDueForm.errors.amount }}</p>
                         </div>
                     </div>
 
