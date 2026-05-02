@@ -411,39 +411,39 @@ const confirmSendReminder = () => {
                         <Table class="w-full text-center text-xs md:text-sm">
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead class="text-left sticky left-0 bg-white z-10 w-40 border-r shadow-sm">Rumah</TableHead>
-                                    <TableHead v-for="month in months" :key="month" class="text-center min-w-[100px]">{{ month }}</TableHead>
+                                    <TableHead class="text-left sticky left-0 bg-white z-10 w-24 sm:w-40 border-r shadow-sm">Rumah</TableHead>
+                                    <TableHead v-for="month in months" :key="month" class="text-center min-w-[72px] sm:min-w-[100px]">{{ month }}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 <TableRow v-for="row in filteredCalendar" :key="row.id">
-                                    <TableCell class="text-left font-bold sticky left-0 bg-white z-10 border-r shadow-sm">
+                                    <TableCell class="text-left font-bold sticky left-0 bg-white z-10 border-r shadow-sm py-1 sm:py-2">
                                         <div class="flex items-center justify-between gap-1">
-                                            <div>
-                                                {{ row.name }}
-                                                <div class="text-[10px] text-muted-foreground font-normal truncate max-w-[100px]">{{ row.owner }}</div>
+                                            <div class="min-w-0">
+                                                <span class="text-xs sm:text-sm">{{ row.name }}</span>
+                                                <div class="text-[10px] text-muted-foreground font-normal truncate max-w-[100px] hidden sm:block">{{ row.owner }}</div>
                                             </div>
-                                            <div class="flex items-center gap-1">
+                                            <div class="flex items-center gap-0.5 sm:gap-1">
                                                 <button
                                                     @click.stop="openKartu(row.id)"
-                                                    class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-slate-500 hover:bg-slate-600 text-white transition-colors shadow-sm"
+                                                    class="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center bg-slate-500 hover:bg-slate-600 text-white transition-colors shadow-sm"
                                                     title="Kartu Iuran"
                                                 >
-                                                    <FileText class="w-3.5 h-3.5" />
+                                                    <FileText class="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                                 </button>
                                                 <button
                                                     v-if="row.total_unpaid > 0"
                                                     @click.stop="demoGuard() && openLumpSumModal(row)"
-                                                    class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white transition-colors shadow-sm"
+                                                    class="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white transition-colors shadow-sm"
                                                     :class="isDemo ? 'opacity-40 cursor-not-allowed' : ''"
                                                     title="Bayar Sekaligus"
                                                 >
-                                                    <Wallet class="w-3.5 h-3.5" />
+                                                    <Wallet class="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                                 </button>
                                                 <button
                                                     v-if="hasUnpaid(row) && row.phone"
                                                     @click.stop="demoGuard() && openReminderModal(row)"
-                                                    class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-green-500 hover:bg-green-600 text-white transition-colors shadow-sm"
+                                                    class="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center bg-green-500 hover:bg-green-600 text-white transition-colors shadow-sm"
                                                     :class="isDemo ? 'opacity-40 cursor-not-allowed' : ''"
                                                     title="Kirim Reminder WA"
                                                 >
@@ -454,9 +454,9 @@ const confirmSendReminder = () => {
                                             </div>
                                         </div>
                                     </TableCell>
-                                    <TableCell v-for="(data, m) in row.months" :key="m" class="p-1">
+                                    <TableCell v-for="(data, m) in row.months" :key="m" class="p-0.5 sm:p-1">
                                         <div
-                                            class="relative h-10 mx-auto flex flex-col items-center justify-center rounded-md transition-all text-[10px] sm:text-xs px-1"
+                                            class="relative h-8 sm:h-10 mx-auto flex flex-col items-center justify-center rounded-md transition-all text-[9px] sm:text-xs px-0.5 sm:px-1"
                                             :class="[getStatusColor(data), isDemo ? 'cursor-not-allowed' : 'cursor-pointer hover:brightness-95']"
                                             @click="demoGuard() && openPaymentModal(data, row.name, months[parseInt(m)-1])"
                                             :title="data.manual_notes ? `Keterangan: ${data.manual_notes}` : (data.bill_amount > 0 ? `Tagihan: ${formatCurrency(data.bill_amount)}` : 'No Bill')"

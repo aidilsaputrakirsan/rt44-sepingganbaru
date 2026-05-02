@@ -19,8 +19,12 @@ const props = defineProps({
 
 const { isDemo, demoGuard } = useDemoGuard();
 
+// 'lumpsum' = basis tanggal bayar (default), 'period' = basis periode tagihan
+const viewMode = ref('lumpsum');
+
 const isModalOpen = ref(false);
 const isBreakdownOpen = ref(false);
+const isPeriodBreakdownOpen = ref(false);
 const displayAmount = ref('');
 
 const balanceForm = useForm({
@@ -129,6 +133,11 @@ const exportPdf = () => {
  <Settings2 class="w-4 h-4 mr-2" />
  Saldo Awal
  </Button>
+ <!-- Toggle View Mode -->
+ <div class="flex items-center rounded-lg border bg-white shadow-sm overflow-hidden text-xs font-semibold">
+     <button @click="viewMode = 'lumpsum'" class="px-3 py-2 transition-colors" :class="viewMode === 'lumpsum' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'">Lump Sum</button>
+     <button @click="viewMode = 'period'" class="px-3 py-2 transition-colors" :class="viewMode === 'period' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'">Per Periode</button>
+ </div>
  </div>
  </div>
  </template>
@@ -136,7 +145,7 @@ const exportPdf = () => {
  <div class="py-12">
  <div class="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-6">
  <!-- Summary Stats -->
- <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+ <div v-if="viewMode === 'lumpsum'" class="grid grid-cols-1 md:grid-cols-4 gap-4">
  <Card class="border-l-4 border-l-blue-500">
  <CardHeader class="pb-2">
  <CardDescription class="flex items-center gap-1.5">
@@ -180,7 +189,7 @@ const exportPdf = () => {
  </Card>
  </div>
 
- <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+ <div v-if="viewMode === 'lumpsum'" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
  <!-- Income Details -->
  <Card>
  <CardHeader>
@@ -248,8 +257,8 @@ const exportPdf = () => {
  </Card>
  </div>
 
- <!-- Final Calculation Summary -->
- <Card class="bg-slate-900 text-white overflow-hidden relative">
+ <!-- Final Calculation Summary (Lump Sum only) -->
+ <Card v-if="viewMode === 'lumpsum'" class="bg-slate-900 text-white overflow-hidden relative">
  <div class="absolute right-0 top-0 p-8 opacity-10">
  <Calculator class="w-32 h-32" />
  </div>
@@ -283,8 +292,179 @@ const exportPdf = () => {
  </div>
  </CardContent>
  </Card>
+
+ <!-- ============================================================ -->
+ <!-- VIEW MODE: PER PERIODE (Non-Lump Sum)                        -->
+ <!-- ============================================================ -->
+ <template v-if="viewMode === 'period'">
+     <!-- Summary Per Periode -->
+     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+         <Card
+             class="border-l-4 border-l-green-500 cursor-pointer hover:shadow-md transition-all"
+             @click="isPeriodBreakdownOpen = true"
+             title="Klik untuk lihat rincian"
+         >
+             <CardHeader class="pb-2">
+                 <CardDescription class="flex items-center gap-1">
+                     Pemasukan Periode Ini
+                     <span class="text-[10px] text-green-500 font-medium">(klik rincian)</span>
+                 </CardDescription>
+                 <CardTitle class="text-xl font-bold text-green-600">+ {{ formatCurrency(report.total_income_period) }}</CardTitle>
+             </CardHeader>
+         </Card>
+         <Card class="border-l-4 border-l-red-500">
+             <CardHeader class="pb-2">
+                 <CardDescription>Pengeluaran Periode Ini</CardDescription>
+                 <CardTitle class="text-xl font-bold text-red-600">- {{ formatCurrency(report.total_expenses) }}</CardTitle>
+             </CardHeader>
+         </Card>
+         <Card :class="report.selisih_period >= 0 ? 'border-l-4 border-l-emerald-500 bg-emerald-50/50' : 'border-l-4 border-l-red-400 bg-red-50/50'">
+             <CardHeader class="pb-2">
+                 <CardDescription>Selisih ({{ report.period_label }})</CardDescription>
+                 <CardTitle class="text-2xl font-black" :class="report.selisih_period >= 0 ? 'text-emerald-700' : 'text-red-700'">
+                     {{ report.selisih_period >= 0 ? '+' : '' }}{{ formatCurrency(report.selisih_period) }}
+                 </CardTitle>
+             </CardHeader>
+         </Card>
+     </div>
+
+     <!-- Rincian Per Periode -->
+     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+         <Card>
+             <CardHeader>
+                 <CardTitle class="flex items-center gap-2">
+                     <TrendingUp class="w-5 h-5 text-green-500" />
+                     Pemasukan Berdasarkan Periode Tagihan
+                 </CardTitle>
+                 <p class="text-xs text-muted-foreground mt-1">Pembayaran yang menutup tagihan bulan <strong>{{ report.period_label }}</strong>, terlepas dari kapan uangnya diterima.</p>
+             </CardHeader>
+             <CardContent>
+                 <div class="space-y-4">
+                     <div class="flex justify-between items-center p-4 rounded-lg bg-slate-50 border border-dashed text-sm">
+                         <span class="font-bold">Iuran Wajib</span>
+                         <span class="text-lg font-bold text-slate-900">{{ formatCurrency(report.income_wajib_period) }}</span>
+                     </div>
+                     <div class="flex justify-between items-center p-4 rounded-lg bg-slate-50 border border-dashed text-sm">
+                         <span class="font-bold">Iuran Sukarela</span>
+                         <span class="text-lg font-bold text-slate-900">{{ formatCurrency(report.income_sukarela_period) }}</span>
+                     </div>
+                     <hr class="border-dashed" />
+                     <div class="flex justify-between items-center px-4">
+                         <span class="font-black text-lg">Total Pemasukan</span>
+                         <span class="text-xl font-black text-green-600">{{ formatCurrency(report.total_income_period) }}</span>
+                     </div>
+                 </div>
+             </CardContent>
+         </Card>
+
+         <Card>
+             <CardHeader>
+                 <CardTitle class="flex items-center gap-2">
+                     <TrendingDown class="w-5 h-5 text-red-500" />
+                     Rincian Pengeluaran
+                 </CardTitle>
+             </CardHeader>
+             <CardContent>
+                 <Table>
+                     <TableHeader>
+                         <TableRow>
+                             <TableHead>Kegiatan</TableHead>
+                             <TableHead class="text-right">Nominal</TableHead>
+                         </TableRow>
+                     </TableHeader>
+                     <TableBody>
+                         <TableRow v-for="expense in report.expenses" :key="expense.id">
+                             <TableCell class="text-sm">{{ expense.title }}</TableCell>
+                             <TableCell class="text-right text-sm font-semibold text-red-600">{{ formatCurrency(expense.amount) }}</TableCell>
+                         </TableRow>
+                         <TableRow v-if="report.expenses.length === 0">
+                             <TableCell colspan="2" class="text-center py-6 text-muted-foreground italic">Tidak ada catatan pengeluaran.</TableCell>
+                         </TableRow>
+                     </TableBody>
+                 </Table>
+                 <div class="mt-4 pt-4 border-t border-dashed flex justify-between items-center px-4">
+                     <span class="font-black text-lg">Total Pengeluaran</span>
+                     <span class="text-xl font-black text-red-600">{{ formatCurrency(report.total_expenses) }}</span>
+                 </div>
+             </CardContent>
+         </Card>
+     </div>
+
+     <!-- Ringkasan Selisih -->
+     <Card :class="report.selisih_period >= 0 ? 'bg-emerald-900 text-white' : 'bg-red-900 text-white'" class="overflow-hidden relative">
+         <div class="absolute right-0 top-0 p-8 opacity-10">
+             <Calculator class="w-32 h-32" />
+         </div>
+         <CardHeader>
+             <CardTitle>Selisih Per Periode — {{ report.period_label }}</CardTitle>
+             <CardDescription class="text-slate-300 text-xs">Pemasukan dihitung berdasarkan tagihan yang lunas di periode ini (bukan tanggal uang masuk)</CardDescription>
+         </CardHeader>
+         <CardContent class="grid grid-cols-1 md:grid-cols-5 gap-6 items-center text-center md:text-left">
+             <div class="space-y-1">
+                 <p class="text-xs text-slate-300 uppercase font-bold tracking-widest">Pemasukan Periode</p>
+                 <p class="text-xl font-bold">{{ formatCurrency(report.total_income_period) }}</p>
+             </div>
+             <p class="text-slate-400 text-center font-bold text-lg">&minus;</p>
+             <div class="space-y-1">
+                 <p class="text-xs text-slate-300 uppercase font-bold tracking-widest">Total Pengeluaran</p>
+                 <p class="text-xl font-bold text-red-300">{{ formatCurrency(report.total_expenses) }}</p>
+             </div>
+             <p class="text-slate-400 text-center font-bold text-lg">=</p>
+             <div class="space-y-1">
+                 <p class="text-xs text-slate-300 uppercase font-bold tracking-widest">Selisih</p>
+                 <p class="text-2xl font-black" :class="report.selisih_period >= 0 ? 'text-emerald-300' : 'text-red-300'">
+                     {{ report.selisih_period >= 0 ? '+' : '' }}{{ formatCurrency(report.selisih_period) }}
+                 </p>
+             </div>
+             <div class="md:col-start-1 md:col-end-6 pt-4 mt-2 border-t border-white/10 text-xs text-slate-400 italic">
+                 * Selisih positif = pemasukan periode ini lebih besar dari pengeluaran. Ini bukan saldo kas — untuk saldo kas gunakan tampilan <button @click="viewMode = 'lumpsum'" class="underline text-slate-300 hover:text-white">Lump Sum</button>.
+             </div>
+         </CardContent>
+     </Card>
+ </template>
+
  </div>
  </div>
+
+ <!-- Modal Rincian Per Periode -->
+ <Dialog v-model:open="isPeriodBreakdownOpen">
+     <DialogContent class="sm:max-w-[680px] max-h-[85vh] flex flex-col">
+         <DialogHeader>
+             <DialogTitle class="flex items-center gap-2 text-green-700">
+                 <TrendingUp class="w-5 h-5" />
+                 Rincian Pemasukan Per Periode — {{ report.period_label }}
+             </DialogTitle>
+             <DialogDescription>
+                 Pembayaran yang menutup tagihan bulan <strong>{{ report.period_label }}</strong>.
+                 Total: <strong class="text-green-700">{{ formatCurrency(report.total_income_period) }}</strong>
+                 dari <strong>{{ report.income_breakdown_period.length }}</strong> transaksi.
+             </DialogDescription>
+         </DialogHeader>
+         <div class="overflow-auto flex-1 -mx-1 px-1">
+             <div v-if="report.income_breakdown_period.length === 0" class="text-center py-10 text-slate-400 text-sm">Tidak ada pemasukan untuk periode ini.</div>
+             <table v-else class="w-full text-sm border-collapse">
+                 <thead class="sticky top-0 bg-white z-10">
+                     <tr class="border-b-2 border-slate-200 text-slate-600 text-xs uppercase tracking-wide">
+                         <th class="text-left py-2 font-semibold">Rumah</th>
+                         <th class="text-left py-2 font-semibold">Tgl Bayar</th>
+                         <th class="text-right py-2 font-semibold">Wajib</th>
+                         <th class="text-right py-2 font-semibold">Sukarela</th>
+                         <th class="text-right py-2 font-semibold">Total</th>
+                     </tr>
+                 </thead>
+                 <tbody>
+                     <tr v-for="(item, i) in report.income_breakdown_period" :key="i" class="border-b border-slate-100 hover:bg-slate-50">
+                         <td class="py-2 font-bold text-slate-800">{{ item.rumah }}</td>
+                         <td class="py-2 text-slate-500 text-xs">{{ item.payment_date }}</td>
+                         <td class="py-2 text-right font-medium">{{ formatCurrency(item.amount_wajib) }}</td>
+                         <td class="py-2 text-right font-medium text-indigo-600">{{ item.amount_sukarela > 0 ? formatCurrency(item.amount_sukarela) : '—' }}</td>
+                         <td class="py-2 text-right font-bold text-green-700">{{ formatCurrency(item.total) }}</td>
+                     </tr>
+                 </tbody>
+             </table>
+         </div>
+     </DialogContent>
+ </Dialog>
 
  <!-- Set Saldo Awal Modal -->
  <Dialog :open="isModalOpen" @update:open="isModalOpen = $event">

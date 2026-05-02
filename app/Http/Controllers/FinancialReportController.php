@@ -87,6 +87,7 @@ class FinancialReportController extends Controller
             $saldoAwal = $this->calculateSaldoAkhir($period->copy()->subMonth());
         }
 
+        // === Basis Tanggal Bayar (Lump Sum) ===
         $incomeData = Payment::with(['due.house'])
             ->where('status', 'verified')
             ->whereYear('payment_date', $year)
@@ -96,24 +97,55 @@ class FinancialReportController extends Controller
         $totalWajib = $incomeData->sum('amount_wajib');
         $totalSukarela = $incomeData->sum('amount_sukarela');
 
-        // Breakdown per rumah untuk modal detail
+        $sortPayment = function ($p) {
+            $house = $p->due?->house;
+            if (!$house) return 'ZZZ';
+            preg_match('/^([A-Za-z]+)(\d*)/', $house->blok, $m);
+            return ($m[1] ?? '') . str_pad($m[2] ?? '0', 5, '0', STR_PAD_LEFT) . str_pad($house->nomor, 5, '0', STR_PAD_LEFT);
+        };
+
         $incomeBreakdown = $incomeData
-            ->sortBy(function ($p) {
-                $house = $p->due?->house;
-                if (!$house) return 'ZZZ';
-                preg_match('/^([A-Za-z]+)(\d*)/', $house->blok, $m);
-                return ($m[1] ?? '') . str_pad($m[2] ?? '0', 5, '0', STR_PAD_LEFT) . str_pad($house->nomor, 5, '0', STR_PAD_LEFT);
-            })
+            ->sortBy($sortPayment)
             ->map(function ($p) {
                 $house = $p->due?->house;
                 return [
-                    'rumah'          => $house ? $house->blok . '/' . $house->nomor : '—',
-                    'period'         => $p->due ? Carbon::parse($p->due->period)->translatedFormat('M Y') : '—',
-                    'payment_date'   => Carbon::parse($p->payment_date)->isoFormat('D MMM Y'),
-                    'amount_wajib'   => (float) $p->amount_wajib,
-                    'amount_sukarela'=> (float) $p->amount_sukarela,
-                    'total'          => (float) $p->amount_wajib + (float) $p->amount_sukarela,
-                    'notes'          => $p->notes ?? '',
+                    'rumah'           => $house ? $house->blok . '/' . $house->nomor : '—',
+                    'period'          => $p->due ? Carbon::parse($p->due->period)->translatedFormat('M Y') : '—',
+                    'payment_date'    => Carbon::parse($p->payment_date)->isoFormat('D MMM Y'),
+                    'amount_wajib'    => (float) $p->amount_wajib,
+                    'amount_sukarela' => (float) $p->amount_sukarela,
+                    'total'           => (float) $p->amount_wajib + (float) $p->amount_sukarela,
+                    'notes'           => $p->notes ?? '',
+                ];
+            })
+            ->values();
+
+        // === Basis Periode Tagihan (Non-Lump Sum) ===
+        // Pemasukan dihitung dari pembayaran yang due-nya jatuh pada periode ini
+        $periodIncomeData = Payment::with(['due.house'])
+            ->where('status', 'verified')
+            ->whereHas('due', function ($q) use ($period) {
+                $q->whereYear('period', $period->year)
+                  ->whereMonth('period', $period->month);
+            })
+            ->get();
+
+        $periodWajib    = $periodIncomeData->sum('amount_wajib');
+        $periodSukarela = $periodIncomeData->sum('amount_sukarela');
+        $periodTotal    = $periodWajib + $periodSukarela;
+
+        $periodBreakdown = $periodIncomeData
+            ->sortBy($sortPayment)
+            ->map(function ($p) {
+                $house = $p->due?->house;
+                return [
+                    'rumah'           => $house ? $house->blok . '/' . $house->nomor : '—',
+                    'period'          => $p->due ? Carbon::parse($p->due->period)->translatedFormat('M Y') : '—',
+                    'payment_date'    => Carbon::parse($p->payment_date)->isoFormat('D MMM Y'),
+                    'amount_wajib'    => (float) $p->amount_wajib,
+                    'amount_sukarela' => (float) $p->amount_sukarela,
+                    'total'           => (float) $p->amount_wajib + (float) $p->amount_sukarela,
+                    'notes'           => $p->notes ?? '',
                 ];
             })
             ->values();
@@ -122,23 +154,30 @@ class FinancialReportController extends Controller
             ->whereMonth('date', $month)
             ->get();
 
-        $totalExpenses = $expenses->sum('amount');
-
+        $totalExpenses  = $expenses->sum('amount');
         $totalPemasukan = $totalWajib + $totalSukarela;
-        $saldoAkhir = $saldoAwal + $totalPemasukan - $totalExpenses;
+        $saldoAkhir     = $saldoAwal + $totalPemasukan - $totalExpenses;
 
         return [
-            'period_label' => $period->translatedFormat('F Y'),
-            'period' => $period->format('Y-m'),
-            'saldo_awal' => $saldoAwal,
-            'is_manual_saldo' => $isManualSaldo,
-            'income_wajib' => (float) $totalWajib,
-            'income_sukarela' => (float) $totalSukarela,
-            'total_income' => (float) $totalPemasukan,
-            'income_breakdown' => $incomeBreakdown,
-            'expenses' => $expenses,
-            'total_expenses' => (float) $totalExpenses,
-            'saldo_akhir' => (float) $saldoAkhir,
+            'period_label'           => $period->translatedFormat('F Y'),
+            'period'                 => $period->format('Y-m'),
+            'saldo_awal'             => $saldoAwal,
+            'is_manual_saldo'        => $isManualSaldo,
+            // Lump sum (basis tanggal bayar)
+            'income_wajib'           => (float) $totalWajib,
+            'income_sukarela'        => (float) $totalSukarela,
+            'total_income'           => (float) $totalPemasukan,
+            'income_breakdown'       => $incomeBreakdown,
+            // Per periode (basis periode tagihan)
+            'income_wajib_period'    => (float) $periodWajib,
+            'income_sukarela_period' => (float) $periodSukarela,
+            'total_income_period'    => (float) $periodTotal,
+            'selisih_period'         => (float) ($periodTotal - $totalExpenses),
+            'income_breakdown_period'=> $periodBreakdown,
+            // Shared
+            'expenses'               => $expenses,
+            'total_expenses'         => (float) $totalExpenses,
+            'saldo_akhir'            => (float) $saldoAkhir,
         ];
     }
 
