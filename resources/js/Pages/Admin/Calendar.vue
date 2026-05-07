@@ -377,25 +377,19 @@ const confirmSendReminder = () => {
             </div>
         </template>
 
-        <div class="py-12">
+        <div class="py-6">
             <div class="mx-auto max-w-[95%] sm:px-6 lg:px-8">
-                <Card>
-                    <CardHeader>
-                        <div>
-                            <CardTitle>Matrix Pembayaran</CardTitle>
-                            <p v-if="!isDemo" class="text-sm text-muted-foreground mt-1">Klik pada kolom bulan untuk mencatat pembayaran manual.</p>
-                            <p v-else class="text-sm text-amber-600 mt-1 font-medium">Mode Demo — semua fitur terlihat, data tidak bisa diubah.</p>
-                        </div>
-                    </CardHeader>
-                    <CardContent class="overflow-x-auto">
-                        <!-- Flash Message -->
-                        <div v-if="showFlash && (flash.success || flash.error)" class="mb-4 rounded-lg px-4 py-3 text-sm flex items-center justify-between" :class="flash.success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'">
-                            <span>{{ flash.success || flash.error }}</span>
-                            <button @click="showFlash = false" class="ml-2 text-current opacity-60 hover:opacity-100">&times;</button>
-                        </div>
 
+                <!-- Header section: judul, info, flash, search — di luar tabel scroll -->
+                <div class="mb-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                        <div>
+                            <h3 class="text-lg font-semibold text-slate-800">Matrix Pembayaran</h3>
+                            <p v-if="!isDemo" class="text-sm text-muted-foreground">Klik pada kolom bulan untuk mencatat pembayaran manual.</p>
+                            <p v-else class="text-sm text-amber-600 font-medium">Mode Demo — semua fitur terlihat, data tidak bisa diubah.</p>
+                        </div>
                         <!-- Search -->
-                        <div class="mb-4 relative max-w-xs">
+                        <div class="relative w-full sm:max-w-xs">
                             <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input
                                 v-model="searchQuery"
@@ -407,14 +401,25 @@ const confirmSendReminder = () => {
                                 <X class="w-4 h-4" />
                             </button>
                         </div>
+                    </div>
+                    <!-- Flash Message -->
+                    <div v-if="showFlash && (flash.success || flash.error)" class="rounded-lg px-4 py-3 text-sm flex items-center justify-between" :class="flash.success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'">
+                        <span>{{ flash.success || flash.error }}</span>
+                        <button @click="showFlash = false" class="ml-2 text-current opacity-60 hover:opacity-100">&times;</button>
+                    </div>
+                </div>
 
-                        <Table class="w-full text-center text-xs md:text-sm">
-                            <TableHeader>
+                <!-- Tabel dalam card dengan scroll sendiri: thead sticky bekerja di sini -->
+                <Card class="overflow-hidden">
+                    <CardContent class="p-0">
+                        <div class="relative overflow-auto max-h-[calc(100vh-260px)]">
+                        <table class="w-full caption-bottom text-center text-xs md:text-sm border-collapse">
+                            <thead class="sticky top-0 z-20 bg-white shadow-[0_1px_0_0_rgb(226_232_240)]">
                                 <TableRow>
-                                    <TableHead class="text-left sticky left-0 bg-white z-10 w-24 sm:w-40 border-r shadow-sm">Rumah</TableHead>
-                                    <TableHead v-for="month in months" :key="month" class="text-center min-w-[72px] sm:min-w-[100px]">{{ month }}</TableHead>
+                                    <TableHead class="text-left sticky left-0 top-0 bg-white z-30 w-24 sm:w-40 border-r shadow-[1px_0_0_0_rgb(226_232_240)]">Rumah</TableHead>
+                                    <TableHead v-for="month in months" :key="month" class="text-center min-w-[72px] sm:min-w-[100px] bg-white">{{ month }}</TableHead>
                                 </TableRow>
-                            </TableHeader>
+                            </thead>
                             <TableBody>
                                 <TableRow v-for="row in filteredCalendar" :key="row.id">
                                     <TableCell class="text-left font-bold sticky left-0 bg-white z-10 border-r shadow-sm py-1 sm:py-2">
@@ -472,9 +477,11 @@ const confirmSendReminder = () => {
                                     </TableCell>
                                 </TableRow>
                             </TableBody>
-                        </Table>
+                        </table>
+                        </div>
                     </CardContent>
                 </Card>
+
             </div>
         </div>
 
