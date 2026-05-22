@@ -317,6 +317,12 @@ const stats = computed(() => {
     PDF Status Hunian
    </Button>
   </a>
+  <a :href="route('admin.warga.export-excel')">
+   <Button variant="outline" size="sm" class="text-xs gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50">
+    <FileDown class="w-3.5 h-3.5" />
+    Excel Data Warga
+   </Button>
+  </a>
  </div>
 
  <!-- Search -->

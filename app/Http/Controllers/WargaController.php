@@ -234,6 +234,105 @@ class WargaController extends Controller
         return $pdf->download('status-rumah-rt44-' . now()->format('Y-m-d') . '.pdf');
     }
 
+    public function exportExcel()
+    {
+        $houses = House::with('owner')
+            ->orderByRaw("REGEXP_SUBSTR(blok, '^[A-Za-z]+') ASC")
+            ->orderByRaw("CAST(REGEXP_SUBSTR(blok, '[0-9]+') AS UNSIGNED) ASC")
+            ->orderByRaw('CAST(nomor AS UNSIGNED) ASC')
+            ->orderBy('nomor')
+            ->get();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Data Warga');
+
+        // Title
+        $sheet->setCellValue('A1', 'DATA WARGA RT-44 SEPINGGAN BARU');
+        $sheet->mergeCells('A1:E1');
+        $sheet->getStyle('A1')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E3A5F']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(28);
+
+        $sheet->setCellValue('A2', 'Dicetak: ' . now()->isoFormat('dddd, D MMMM Y'));
+        $sheet->mergeCells('A2:E2');
+        $sheet->getStyle('A2')->applyFromArray([
+            'font' => ['italic' => true, 'size' => 10, 'color' => ['rgb' => '64748B']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+        ]);
+
+        // Header row
+        $headers = ['No', 'Rumah', 'Nama Pemilik/Penghuni', 'Kontak', 'Status Huni', 'Status Kepemilikan'];
+        $headerRow = 4;
+        foreach ($headers as $i => $h) {
+            $col = chr(65 + $i);
+            $sheet->setCellValue($col . $headerRow, $h);
+        }
+        $sheet->getStyle('A4:F4')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E3A5F']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CBD5E1']]],
+        ]);
+        $sheet->getRowDimension($headerRow)->setRowHeight(22);
+
+        // Data rows
+        $row = 5;
+        foreach ($houses as $i => $h) {
+            $statusHuni = $h->status_huni === 'berpenghuni' ? 'Berpenghuni' : 'Kosong';
+            $kepemilikan = match ($h->resident_status) {
+                'pemilik' => 'Pemilik',
+                'kontrak' => 'Kontrak',
+                default => 'Belum Diketahui',
+            };
+
+            $sheet->setCellValue('A' . $row, $i + 1);
+            $sheet->setCellValue('B' . $row, $h->blok . '/' . $h->nomor);
+            $sheet->setCellValue('C' . $row, $h->owner?->name ?? '-');
+            $sheet->setCellValueExplicit('D' . $row, $h->owner?->phone_number ?? '-', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValue('E' . $row, $statusHuni);
+            $sheet->setCellValue('F' . $row, $kepemilikan);
+
+            // Color status huni
+            $hcolor = $h->status_huni === 'berpenghuni' ? '15803D' : '64748B';
+            $sheet->getStyle('E' . $row)->getFont()->setBold(true)->getColor()->setRGB($hcolor);
+
+            $row++;
+        }
+
+        $lastRow = $row - 1;
+        $sheet->getStyle('A5:F' . $lastRow)->applyFromArray([
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E2E8F0']]],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getStyle('A5:A' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('B5:B' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('E5:F' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        // Column widths
+        $sheet->getColumnDimension('A')->setWidth(6);
+        $sheet->getColumnDimension('B')->setWidth(12);
+        $sheet->getColumnDimension('C')->setWidth(35);
+        $sheet->getColumnDimension('D')->setWidth(18);
+        $sheet->getColumnDimension('E')->setWidth(15);
+        $sheet->getColumnDimension('F')->setWidth(18);
+
+        // Freeze header
+        $sheet->freezePane('A5');
+
+        $filename = 'data-warga-rt44-' . now()->format('Y-m-d') . '.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
     public function duesForKoreksi(House $house)
     {
         $suggested = \App\Services\DuesService::calculate($house);

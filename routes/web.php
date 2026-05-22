@@ -50,6 +50,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/admin/warga/import', [\App\Http\Controllers\WargaController::class, 'import'])->name('admin.warga.import');
     Route::get('/admin/warga/download-template', [\App\Http\Controllers\WargaController::class, 'downloadTemplate'])->name('admin.warga.template');
     Route::get('/admin/warga/export-status-pdf', [\App\Http\Controllers\WargaController::class, 'exportStatusPdf'])->name('admin.warga.export-status-pdf');
+    Route::get('/admin/warga/export-excel', [\App\Http\Controllers\WargaController::class, 'exportExcel'])->name('admin.warga.export-excel');
 
     // Expense Routes
     Route::get('/admin/expenses', [\App\Http\Controllers\ExpenseController::class, 'index'])->name('admin.expenses.index');
