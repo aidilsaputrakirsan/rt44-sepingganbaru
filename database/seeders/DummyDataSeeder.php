@@ -55,7 +55,7 @@ class DummyDataSeeder extends Seeder
                 if ($statusHuni === 'berpenghuni') {
                     $owner = User::create([
                         'name' => $faker->name,
-                        'email' => strtolower($block . $i) . '@rt44.com',
+                        'email' => strtolower($block) . '-' . $i . '@rt44.com',
                         'password' => Hash::make('password'),
                         'role' => 'warga',
                         'phone_number' => $faker->phoneNumber,

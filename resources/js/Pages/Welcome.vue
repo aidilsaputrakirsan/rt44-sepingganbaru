@@ -87,6 +87,7 @@ onUnmounted(() => {
                 </Link>
 
                 <template v-else>
+                    <!-- Lihat Demo (sementara di-hide, fitur tetap aktif)
                     <Link
                         :href="route('demo')"
                         class="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold bg-slate-700 text-white hover:bg-slate-800 transition shadow-md shadow-slate-500/20"
@@ -94,6 +95,7 @@ onUnmounted(() => {
                         <Eye class="w-4 h-4" />
                         Lihat Demo
                     </Link>
+                    -->
                     <Link
                         :href="route('login')"
                         class="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold bg-amber-500 text-white hover:bg-amber-600 transition shadow-md shadow-amber-500/20"
