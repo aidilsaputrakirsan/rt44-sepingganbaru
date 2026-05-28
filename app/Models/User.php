@@ -53,4 +53,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(House::class, 'owner_id');
     }
+
+    public function residentProfile()
+    {
+        return $this->hasOne(ResidentProfile::class);
+    }
 }

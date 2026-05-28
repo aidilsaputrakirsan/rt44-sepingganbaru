@@ -1,7 +1,7 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart } from 'lucide-vue-next';
+import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart, IdCard } from 'lucide-vue-next';
 
 const props = defineProps({
     mobile: {
@@ -29,6 +29,7 @@ const menuItems = computed(() => {
         return [
             { name: 'Dashboard', icon: Home, route: 'dashboard' },
             { name: 'Kalender Iuran', icon: Calendar, route: 'dashboard.calendar' },
+            { name: 'Profil Warga', icon: IdCard, route: 'profil.show' },
         ];
     }
 });

@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
-import { LogIn, Shield, CalendarDays, Receipt, Eye } from 'lucide-vue-next';
+import { LogIn, Shield, CalendarDays, Receipt, Eye, IdCard } from 'lucide-vue-next';
 import { onMounted, onUnmounted } from 'vue';
 
 defineProps({
@@ -148,9 +148,9 @@ onUnmounted(() => {
                         <p class="text-xs text-slate-500">Transparansi pemasukan & pengeluaran kas RT.</p>
                     </div>
                     <div class="rounded-xl border border-amber-100 bg-white/80 backdrop-blur p-4 sm:p-5 space-y-2 text-left shadow-sm">
-                        <Shield class="w-6 h-6 text-amber-500" />
-                        <h3 class="font-semibold text-sm text-slate-800">Aman & Terpercaya</h3>
-                        <p class="text-xs text-slate-500">Data tersimpan aman dengan sistem autentikasi.</p>
+                        <IdCard class="w-6 h-6 text-amber-500" />
+                        <h3 class="font-semibold text-sm text-slate-800">Profil Warga</h3>
+                        <p class="text-xs text-slate-500">Data identitas dan dokumen keluarga tersimpan rapi untuk keperluan administrasi RT.</p>
                     </div>
                 </div>
             </div>

@@ -79,9 +79,41 @@ class AdminController extends Controller
             $saldoPerBulan[$m] = (float) ($saldoAwal + $income - $expenses);
         }
 
+        // 3. Status kelengkapan Profil Warga (KK & KTP) per rumah
+        $housesWithOwner = House::with(['owner.residentProfile.idCards'])
+            ->whereNotNull('owner_id')
+            ->orderByRaw("REGEXP_SUBSTR(blok, '^[A-Za-z]+') ASC")
+            ->orderByRaw("CAST(REGEXP_SUBSTR(blok, '[0-9]+') AS UNSIGNED) ASC")
+            ->orderByRaw('CAST(nomor AS UNSIGNED) ASC')
+            ->get();
+
+        $profileStatuses = $housesWithOwner->map(function ($house) {
+            $profile = $house->owner?->residentProfile;
+            $hasKk = $profile && !empty($profile->kk_path);
+            $ktpCount = $profile ? $profile->idCards->count() : 0;
+            $hasKtp = $ktpCount > 0;
+
+            if ($hasKk && $hasKtp) {
+                $status = 'lengkap';
+            } elseif ($hasKk || $hasKtp) {
+                $status = 'sebagian';
+            } else {
+                $status = 'belum';
+            }
+
+            return [
+                'name' => $house->blok . '/' . $house->nomor,
+                'status' => $status,
+                'has_kk' => $hasKk,
+                'has_ktp' => $hasKtp,
+                'ktp_count' => $ktpCount,
+            ];
+        })->values();
+
         return Inertia::render('Admin/Dashboard', [
             'unpaidHouses' => $unpaidHouses,
             'saldoPerBulan' => array_values($saldoPerBulan),
+            'profileStatuses' => $profileStatuses,
             'year' => $year,
             'month' => $month,
         ]);

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { Head, useForm, usePage, router } from '@inertiajs/vue3';
+import { Head, useForm, usePage, router, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DemoToast from '@/Components/DemoToast.vue';
 import { useDemoGuard } from '@/composables/useDemoGuard';
@@ -18,7 +18,7 @@ import {
  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/Components/ui/select';
 import {
- Users, Plus, Trash2, Edit2, Upload, FileText, AlertCircle, Search, X, FileSpreadsheet, Wrench, FileDown
+ Users, Plus, Trash2, Edit2, Upload, FileText, AlertCircle, Search, X, FileSpreadsheet, Wrench, FileDown, IdCard
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -399,6 +399,15 @@ const stats = computed(() => {
   >
   <Edit2 class="w-4 h-4" />
   </Button>
+  <Link
+  v-if="house.owner"
+  :href="route('admin.warga.profil', { house: house.id })"
+  class="h-8 w-8 text-slate-500 hover:text-emerald-600 flex items-center justify-center rounded-md hover:bg-slate-100 transition-colors"
+  title="Lihat Profil Warga (KK, KTP, dll)"
+  @click.stop
+  >
+  <IdCard class="w-4 h-4" />
+  </Link>
   <Button
   v-if="!house.is_subsidized"
   variant="ghost"

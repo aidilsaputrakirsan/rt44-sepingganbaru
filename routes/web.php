@@ -25,6 +25,16 @@ Route::get('/dashboard/calendar', [DashboardController::class, 'calendar'])->mid
 Route::post('/dues/{due}/pay', [\App\Http\Controllers\PaymentController::class, 'store'])->middleware(['auth', 'verified'])->name('payment.store');
 Route::get('/payments/{payment}/receipt', [\App\Http\Controllers\PaymentController::class, 'receipt'])->middleware(['auth', 'verified'])->name('payment.receipt');
 
+// Profil Warga (warga side)
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/profil', [\App\Http\Controllers\ResidentProfileController::class, 'show'])->name('profil.show');
+    Route::post('/profil', [\App\Http\Controllers\ResidentProfileController::class, 'update'])->name('profil.update');
+    Route::post('/profil/kk', [\App\Http\Controllers\ResidentProfileController::class, 'uploadKk'])->name('profil.kk.upload');
+    Route::delete('/profil/kk', [\App\Http\Controllers\ResidentProfileController::class, 'deleteKk'])->name('profil.kk.delete');
+    Route::post('/profil/ktp', [\App\Http\Controllers\ResidentProfileController::class, 'uploadKtp'])->name('profil.ktp.upload');
+    Route::delete('/profil/ktp/{idCard}', [\App\Http\Controllers\ResidentProfileController::class, 'deleteKtp'])->name('profil.ktp.delete');
+});
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
     Route::get('/admin/tagihan', [AdminController::class, 'tagihan'])->name('admin.tagihan');
@@ -51,6 +61,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/warga/download-template', [\App\Http\Controllers\WargaController::class, 'downloadTemplate'])->name('admin.warga.template');
     Route::get('/admin/warga/export-status-pdf', [\App\Http\Controllers\WargaController::class, 'exportStatusPdf'])->name('admin.warga.export-status-pdf');
     Route::get('/admin/warga/export-excel', [\App\Http\Controllers\WargaController::class, 'exportExcel'])->name('admin.warga.export-excel');
+    Route::get('/admin/warga/{house}/profil', [\App\Http\Controllers\ResidentProfileController::class, 'adminShow'])->name('admin.warga.profil');
 
     // Expense Routes
     Route::get('/admin/expenses', [\App\Http\Controllers\ExpenseController::class, 'index'])->name('admin.expenses.index');
