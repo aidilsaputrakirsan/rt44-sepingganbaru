@@ -30,7 +30,12 @@ class WargaController extends Controller
 
     public function index()
     {
-        $houses = House::with(['owner', 'tenant'])
+        // Eager load residentProfile + idCards untuk halaman Ketua (info inline KK/KTP).
+        // Admin/Index juga ikut dapat tapi tidak dipakai di sana — harmless.
+        $houses = House::with([
+                'owner.residentProfile.idCards',
+                'tenant.residentProfile.idCards',
+            ])
             ->orderByRaw("REGEXP_SUBSTR(blok, '^[A-Za-z]+') ASC")
             ->orderByRaw("CAST(REGEXP_SUBSTR(blok, '[0-9]+') AS UNSIGNED) ASC")
             ->orderByRaw('CAST(nomor AS UNSIGNED) ASC')

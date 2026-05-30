@@ -33,25 +33,57 @@ class AdminController extends Controller
 
         // Ketua: render dashboard minimal (cuma profil completion, tanpa data keuangan)
         if ($role === 'ketua') {
-            $housesWithOwner = House::with(['owner.residentProfile.idCards'])
+            $housesWithOwner = House::with([
+                    'owner.residentProfile.idCards',
+                    'tenant.residentProfile.idCards',
+                ])
                 ->whereNotNull('owner_id')
                 ->orderByRaw("REGEXP_SUBSTR(blok, '^[A-Za-z]+') ASC")
                 ->orderByRaw("CAST(REGEXP_SUBSTR(blok, '[0-9]+') AS UNSIGNED) ASC")
                 ->orderByRaw('CAST(nomor AS UNSIGNED) ASC')
                 ->get();
 
-            $profileStatuses = $housesWithOwner->map(function ($house) {
-                $profile = $house->owner?->residentProfile;
-                $hasKk = $profile && !empty($profile->kk_path);
-                $ktpCount = $profile ? $profile->idCards->count() : 0;
+            $slotSummary = function ($user) {
+                if (!$user) return null;
+                $p = $user->residentProfile;
+                $hasKk = $p && !empty($p->kk_path);
+                $ktpCount = $p ? $p->idCards->count() : 0;
                 $hasKtp = $ktpCount > 0;
                 $status = $hasKk && $hasKtp ? 'lengkap' : (($hasKk || $hasKtp) ? 'sebagian' : 'belum');
                 return [
-                    'name' => $house->blok . '/' . $house->nomor,
-                    'status' => $status,
+                    'name' => $user->name,
                     'has_kk' => $hasKk,
                     'has_ktp' => $hasKtp,
                     'ktp_count' => $ktpCount,
+                    'status' => $status,
+                ];
+            };
+
+            $profileStatuses = $housesWithOwner->map(function ($house) use ($slotSummary) {
+                $owner = $slotSummary($house->owner);
+                $tenant = $slotSummary($house->tenant);
+
+                // Overall status: gabungan owner + tenant (kalau ada tenant)
+                $slots = array_filter([$owner, $tenant]);
+                $statuses = array_column($slots, 'status');
+
+                $allLengkap = count($statuses) > 0 && !in_array('sebagian', $statuses) && !in_array('belum', $statuses);
+                $allBelum = count($statuses) > 0 && count(array_unique($statuses)) === 1 && $statuses[0] === 'belum';
+
+                if ($allLengkap) {
+                    $overall = 'lengkap';
+                } elseif ($allBelum) {
+                    $overall = 'belum';
+                } else {
+                    $overall = 'sebagian';
+                }
+
+                return [
+                    'name' => $house->blok . '/' . $house->nomor,
+                    'status' => $overall,
+                    'has_tenant' => (bool) $house->tenant,
+                    'owner' => $owner,
+                    'tenant' => $tenant,
                 ];
             })->values();
 

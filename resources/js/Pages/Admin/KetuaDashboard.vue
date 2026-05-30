@@ -4,7 +4,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
-import { IdCard, LayoutDashboard, ChevronDown, Search, Users } from 'lucide-vue-next';
+import { IdCard, LayoutDashboard, ChevronDown, Search, Users, UserCircle } from 'lucide-vue-next';
 
 const props = defineProps({
     profileStatuses: { type: Array, default: () => [] },
@@ -33,9 +33,24 @@ const filteredProfiles = computed(() => {
 });
 
 const profileStatusBadge = (status) => {
-    if (status === 'lengkap') return { label: 'Lengkap', cls: 'bg-emerald-50 border-emerald-200 text-emerald-700' };
-    if (status === 'sebagian') return { label: 'Sebagian', cls: 'bg-amber-50 border-amber-200 text-amber-700' };
-    return { label: 'Belum', cls: 'bg-red-50 border-red-200 text-red-700' };
+    if (status === 'lengkap') return {
+        label: 'Lengkap',
+        borderCls: 'border-emerald-200',
+        headerCls: 'bg-emerald-50 border-emerald-200',
+        chipCls: 'bg-emerald-600 text-white',
+    };
+    if (status === 'sebagian') return {
+        label: 'Sebagian',
+        borderCls: 'border-amber-200',
+        headerCls: 'bg-amber-50 border-amber-200',
+        chipCls: 'bg-amber-600 text-white',
+    };
+    return {
+        label: 'Belum',
+        borderCls: 'border-red-200',
+        headerCls: 'bg-red-50 border-red-200',
+        chipCls: 'bg-red-600 text-white',
+    };
 };
 </script>
 
@@ -152,20 +167,55 @@ const profileStatusBadge = (status) => {
                             </div>
                         </div>
 
-                        <!-- Grid status -->
-                        <div v-if="filteredProfiles.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                        <!-- Grid status — 2 slot per rumah -->
+                        <div v-if="filteredProfiles.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                             <div v-for="p in filteredProfiles" :key="p.name"
-                                class="flex flex-col p-2.5 rounded-lg border transition-colors"
-                                :class="profileStatusBadge(p.status).cls"
+                                class="rounded-lg border-2 overflow-hidden bg-white transition-colors"
+                                :class="profileStatusBadge(p.status).borderCls"
                             >
-                                <span class="text-sm font-bold leading-tight">{{ p.name }}</span>
-                                <div class="flex gap-1 mt-1.5">
-                                    <span class="text-[10px] uppercase font-semibold px-1.5 rounded" :class="p.has_kk ? 'bg-white/80' : 'opacity-40'">
-                                        KK {{ p.has_kk ? '✓' : '−' }}
+                                <!-- Header rumah + overall badge -->
+                                <div class="px-3 py-2 flex items-center justify-between border-b" :class="profileStatusBadge(p.status).headerCls">
+                                    <span class="font-bold text-sm">{{ p.name }}</span>
+                                    <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" :class="profileStatusBadge(p.status).chipCls">
+                                        {{ profileStatusBadge(p.status).label }}
                                     </span>
-                                    <span class="text-[10px] uppercase font-semibold px-1.5 rounded" :class="p.has_ktp ? 'bg-white/80' : 'opacity-40'">
-                                        KTP {{ p.ktp_count || '−' }}
-                                    </span>
+                                </div>
+                                <!-- Body: 2 slots -->
+                                <div class="divide-y divide-slate-100">
+                                    <!-- Pemilik -->
+                                    <div v-if="p.owner" class="px-3 py-2 flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-1.5 min-w-0">
+                                            <UserCircle class="w-4 h-4 text-emerald-600 shrink-0" />
+                                            <span class="text-[10px] uppercase tracking-wider font-bold text-emerald-700">Pemilik</span>
+                                        </div>
+                                        <div class="flex gap-1.5">
+                                            <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :class="p.owner.has_kk ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'">
+                                                KK {{ p.owner.has_kk ? '✓' : '−' }}
+                                            </span>
+                                            <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :class="p.owner.has_ktp ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'">
+                                                KTP {{ p.owner.ktp_count || '−' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <!-- Kontrak (kalau ada) -->
+                                    <div v-if="p.tenant" class="px-3 py-2 flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-1.5 min-w-0">
+                                            <UserCircle class="w-4 h-4 text-amber-600 shrink-0" />
+                                            <span class="text-[10px] uppercase tracking-wider font-bold text-amber-700">Kontrak</span>
+                                        </div>
+                                        <div class="flex gap-1.5">
+                                            <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :class="p.tenant.has_kk ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-400'">
+                                                KK {{ p.tenant.has_kk ? '✓' : '−' }}
+                                            </span>
+                                            <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :class="p.tenant.has_ktp ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-400'">
+                                                KTP {{ p.tenant.ktp_count || '−' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <!-- No kontrak placeholder -->
+                                    <div v-else class="px-3 py-1.5 text-center">
+                                        <span class="text-[10px] text-slate-400 italic">Tidak ada kontrak</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -14,7 +14,7 @@ import {
 } from '@/Components/ui/select';
 import {
     Users, Plus, Search, X, Home, Phone, Mail, IdCard, UserPlus, UserMinus, Pencil,
-    UserCircle, ChevronRight, AlertTriangle
+    UserCircle, ChevronRight, AlertTriangle, FileText, FileSearch, CheckCircle2, MinusCircle
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -327,36 +327,99 @@ const huniLabel = (s) => s === 'berpenghuni' ? 'Berpenghuni' : 'Kosong';
                         </div>
                     </div>
 
-                    <!-- Body: pemilik + kontrak -->
-                    <div class="px-4 py-3 space-y-3">
-                        <!-- Pemilik -->
-                        <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 mt-0.5">
-                                <UserCircle class="w-5 h-5 text-emerald-600" />
+                    <!-- Body: 2 slot dengan info profil -->
+                    <div class="divide-y divide-slate-100">
+                        <!-- Pemilik slot -->
+                        <div class="px-4 py-3">
+                            <div class="flex items-center gap-2 mb-2">
+                                <UserCircle class="w-4 h-4 text-emerald-600" />
+                                <span class="text-[10px] uppercase tracking-wider font-bold text-emerald-700">Pemilik</span>
                             </div>
-                            <div class="min-w-0 flex-1">
-                                <div class="text-[10px] uppercase tracking-wider font-bold text-emerald-700">Pemilik</div>
-                                <div class="font-semibold text-slate-900 truncate">{{ house.owner?.name || '-' }}</div>
-                                <div v-if="house.owner?.phone_number" class="text-xs text-slate-500 flex items-center gap-1">
-                                    <Phone class="w-3 h-3" /> {{ house.owner.phone_number }}
+                            <div class="font-semibold text-slate-900 truncate">{{ house.owner?.name || '-' }}</div>
+                            <div v-if="house.owner?.phone_number" class="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                                <Phone class="w-3 h-3 shrink-0" /> {{ house.owner.phone_number }}
+                            </div>
+                            <!-- Info nomor KK + nomor KTP (data tambahan) -->
+                            <div class="mt-2 space-y-1 text-[11px]">
+                                <div class="flex items-start gap-1.5">
+                                    <span class="text-slate-500 shrink-0 w-14">No. KK</span>
+                                    <span class="text-slate-400">:</span>
+                                    <span v-if="house.owner?.resident_profile?.nomor_kk" class="font-mono font-semibold text-slate-800 break-all">
+                                        {{ house.owner.resident_profile.nomor_kk }}
+                                    </span>
+                                    <span v-else class="text-slate-400 italic">belum diisi</span>
+                                </div>
+                                <div class="flex items-start gap-1.5">
+                                    <span class="text-slate-500 shrink-0 w-14">No. KTP</span>
+                                    <span class="text-slate-400">:</span>
+                                    <div v-if="house.owner?.resident_profile?.id_cards?.length" class="min-w-0 flex-1 space-y-0.5">
+                                        <div v-for="c in house.owner.resident_profile.id_cards" :key="c.id" class="flex items-baseline gap-1 flex-wrap">
+                                            <span v-if="c.nomor_ktp" class="font-mono font-semibold text-slate-800 break-all">{{ c.nomor_ktp }}</span>
+                                            <span v-else class="text-slate-400 italic">(tanpa nomor)</span>
+                                            <span v-if="c.label" class="text-slate-400">— {{ c.label }}</span>
+                                        </div>
+                                    </div>
+                                    <span v-else class="text-slate-400 italic">belum diisi</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Kontrak -->
-                        <div v-if="house.tenant" class="flex items-start gap-3">
-                            <div class="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0 mt-0.5">
-                                <UserCircle class="w-5 h-5 text-amber-600" />
+                        <!-- Kontrak slot -->
+                        <div v-if="house.tenant" class="px-4 py-3">
+                            <div class="flex items-center justify-between gap-2 mb-2">
+                                <div class="flex items-center gap-2">
+                                    <UserCircle class="w-4 h-4 text-amber-600" />
+                                    <span class="text-[10px] uppercase tracking-wider font-bold text-amber-700">Kontrak</span>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <button
+                                        type="button"
+                                        class="text-slate-400 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50"
+                                        @click="openTenantEdit(house)"
+                                        title="Edit data kontrak"
+                                    >
+                                        <Pencil class="w-3 h-3" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="text-slate-400 hover:text-red-600 transition-colors p-1 rounded hover:bg-red-50"
+                                        @click="askRemoveTenant(house)"
+                                        title="Hapus data kontrak"
+                                    >
+                                        <UserMinus class="w-3 h-3" />
+                                    </button>
+                                </div>
                             </div>
-                            <div class="min-w-0 flex-1">
-                                <div class="text-[10px] uppercase tracking-wider font-bold text-amber-700">Kontrak</div>
-                                <div class="font-semibold text-slate-900 truncate">{{ house.tenant.name }}</div>
-                                <div v-if="house.tenant.phone_number" class="text-xs text-slate-500 flex items-center gap-1">
-                                    <Phone class="w-3 h-3" /> {{ house.tenant.phone_number }}
+                            <div class="font-semibold text-slate-900 truncate">{{ house.tenant.name }}</div>
+                            <div v-if="house.tenant.phone_number" class="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                                <Phone class="w-3 h-3 shrink-0" /> {{ house.tenant.phone_number }}
+                            </div>
+                            <!-- Info nomor KK + nomor KTP (data tambahan) -->
+                            <div class="mt-2 space-y-1 text-[11px]">
+                                <div class="flex items-start gap-1.5">
+                                    <span class="text-slate-500 shrink-0 w-14">No. KK</span>
+                                    <span class="text-slate-400">:</span>
+                                    <span v-if="house.tenant?.resident_profile?.nomor_kk" class="font-mono font-semibold text-slate-800 break-all">
+                                        {{ house.tenant.resident_profile.nomor_kk }}
+                                    </span>
+                                    <span v-else class="text-slate-400 italic">belum diisi</span>
+                                </div>
+                                <div class="flex items-start gap-1.5">
+                                    <span class="text-slate-500 shrink-0 w-14">No. KTP</span>
+                                    <span class="text-slate-400">:</span>
+                                    <div v-if="house.tenant?.resident_profile?.id_cards?.length" class="min-w-0 flex-1 space-y-0.5">
+                                        <div v-for="c in house.tenant.resident_profile.id_cards" :key="c.id" class="flex items-baseline gap-1 flex-wrap">
+                                            <span v-if="c.nomor_ktp" class="font-mono font-semibold text-slate-800 break-all">{{ c.nomor_ktp }}</span>
+                                            <span v-else class="text-slate-400 italic">(tanpa nomor)</span>
+                                            <span v-if="c.label" class="text-slate-400">— {{ c.label }}</span>
+                                        </div>
+                                    </div>
+                                    <span v-else class="text-slate-400 italic">belum diisi</span>
                                 </div>
                             </div>
                         </div>
-                        <div v-else>
+                        <!-- Tambah Kontrak placeholder -->
+                        <div v-else class="px-4 py-3">
                             <button
                                 type="button"
                                 class="w-full text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 py-2 rounded-lg border border-dashed border-blue-200 flex items-center justify-center gap-1.5 transition-colors"
@@ -367,26 +430,26 @@ const huniLabel = (s) => s === 'berpenghuni' ? 'Berpenghuni' : 'Kosong';
                         </div>
                     </div>
 
-                    <!-- Footer: action buttons -->
-                    <div class="px-4 py-3 bg-slate-50/60 border-t border-slate-100 flex flex-wrap gap-2">
-                        <Button size="sm" variant="outline" class="flex-1 min-w-[80px] h-9" @click="openEdit(house)">
-                            <Pencil class="w-3.5 h-3.5 mr-1" /> Edit
-                        </Button>
-                        <Button v-if="house.owner" size="sm" variant="outline" as-child class="flex-1 min-w-[80px] h-9 text-emerald-700 border-emerald-200 hover:bg-emerald-50">
-                            <Link :href="route('admin.warga.profil', { house: house.id })">
-                                <IdCard class="w-3.5 h-3.5 mr-1" /> Profil Pemilik
-                            </Link>
-                        </Button>
-                        <Button v-if="house.tenant" size="sm" variant="outline" as-child class="flex-1 min-w-[80px] h-9 text-amber-700 border-amber-200 hover:bg-amber-50">
+                    <!-- Footer: action buttons (2 row layout) -->
+                    <div class="px-4 py-3 bg-slate-50/60 border-t border-slate-100 space-y-2">
+                        <!-- Row 1: Edit + Profil Pemilik -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <Button size="sm" variant="outline" class="h-9" @click="openEdit(house)">
+                                <Pencil class="w-3.5 h-3.5 mr-1.5 shrink-0" /> Edit
+                            </Button>
+                            <Button v-if="house.owner" size="sm" variant="outline" as-child class="h-9 text-emerald-700 border-emerald-200 hover:bg-emerald-50">
+                                <Link :href="route('admin.warga.profil', { house: house.id })">
+                                    <IdCard class="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                                    <span class="truncate">Profil Pemilik</span>
+                                </Link>
+                            </Button>
+                        </div>
+                        <!-- Row 2: Profil Kontrak (full width, only if has tenant) -->
+                        <Button v-if="house.tenant" size="sm" variant="outline" as-child class="w-full h-9 text-amber-700 border-amber-200 hover:bg-amber-50">
                             <Link :href="route('admin.warga.profil', { house: house.id, slot: 'tenant' })">
-                                <IdCard class="w-3.5 h-3.5 mr-1" /> Profil Kontrak
+                                <IdCard class="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                                <span class="truncate">Profil Kontrak</span>
                             </Link>
-                        </Button>
-                        <Button v-if="house.tenant" size="sm" variant="ghost" class="h-9 text-slate-500 hover:bg-slate-100" @click="openTenantEdit(house)" title="Edit data kontrak">
-                            <UserPlus class="w-3.5 h-3.5" />
-                        </Button>
-                        <Button v-if="house.tenant" size="sm" variant="ghost" class="h-9 text-red-600 hover:bg-red-50" @click="askRemoveTenant(house)" title="Hapus kontrak">
-                            <UserMinus class="w-3.5 h-3.5" />
                         </Button>
                     </div>
                 </div>
