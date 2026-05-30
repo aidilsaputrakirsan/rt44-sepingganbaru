@@ -35,6 +35,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/profil/ktp/{idCard}', [\App\Http\Controllers\ResidentProfileController::class, 'deleteKtp'])->name('profil.ktp.delete');
 });
 
+// Papan Informasi (semua role bisa lihat, admin & ketua bisa upload/hapus)
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/info', [\App\Http\Controllers\InfoController::class, 'index'])->name('info.index');
+    Route::post('/info', [\App\Http\Controllers\InfoController::class, 'store'])->name('info.store');
+    Route::delete('/info/{info}', [\App\Http\Controllers\InfoController::class, 'destroy'])->name('info.destroy');
+});
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
     Route::get('/admin/tagihan', [AdminController::class, 'tagihan'])->name('admin.tagihan');

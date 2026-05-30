@@ -1,7 +1,7 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart, IdCard } from 'lucide-vue-next';
+import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart, IdCard, Newspaper } from 'lucide-vue-next';
 
 const props = defineProps({
     mobile: {
@@ -32,16 +32,19 @@ const menuItems = computed(() => {
             { name: 'Kalender Iuran', icon: Calendar, route: 'admin.calendar' },
             { name: 'Pengeluaran', icon: Receipt, route: 'admin.expenses.index' },
             { name: 'Laporan Keuangan', icon: PieChart, route: 'admin.report.index' },
+            { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
         ];
     } else if (isKetua.value) {
         return [
             { name: 'Dashboard', icon: LayoutDashboard, route: 'admin.dashboard' },
             { name: 'Data Warga', icon: UserCircle, route: 'admin.warga.index' },
+            { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
         ];
     } else {
         return [
             { name: 'Dashboard', icon: Home, route: 'dashboard' },
             { name: 'Kalender Iuran', icon: Calendar, route: 'dashboard.calendar' },
+            { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
             // Profil Warga di-hide dari sidebar warga — admin yang manage CRUD via Data Warga.
             // Route tetap aktif (profil.show) untuk akses langsung jika dibutuhkan.
         ];
