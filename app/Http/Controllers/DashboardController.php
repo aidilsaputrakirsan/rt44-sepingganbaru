@@ -16,9 +16,10 @@ class DashboardController extends Controller
             return redirect()->route('admin.dashboard');
         }
 
-        $houses = $user->houses()->with(['dues' => function($q) {
-            $q->orderBy('period', 'desc');
-        }])->get();
+        // Warga bisa login sebagai pemilik (owner_id) atau kontrak (tenant_id)
+        $ownedHouses = $user->houses()->with(['dues' => fn($q) => $q->orderBy('period', 'desc')])->get();
+        $tenantedHouses = $user->tenantedHouses()->with(['dues' => fn($q) => $q->orderBy('period', 'desc')])->get();
+        $houses = $ownedHouses->concat($tenantedHouses)->unique('id')->values();
 
         return \Inertia\Inertia::render('Dashboard', [
             'houses' => $houses
@@ -30,9 +31,9 @@ class DashboardController extends Controller
         $user = auth()->user();
         $year = $request->input('year', now()->year);
         
-        $houses = $user->houses()->with(['dues' => function($q) use ($year) {
-            $q->whereYear('period', $year);
-        }])->get();
+        $ownedHouses = $user->houses()->with(['dues' => fn($q) => $q->whereYear('period', $year)])->get();
+        $tenantedHouses = $user->tenantedHouses()->with(['dues' => fn($q) => $q->whereYear('period', $year)])->get();
+        $houses = $ownedHouses->concat($tenantedHouses)->unique('id')->values();
 
         $calendar = $houses->map(function ($house) {
             // Pre-group dues by month for O(1) lookup

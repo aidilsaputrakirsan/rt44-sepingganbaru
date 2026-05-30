@@ -18,7 +18,7 @@ import {
  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/Components/ui/select';
 import {
- Users, Plus, Trash2, Edit2, Upload, FileText, AlertCircle, Search, X, FileSpreadsheet, Wrench, FileDown, IdCard
+ Users, Plus, Trash2, Edit2, Upload, FileText, AlertCircle, Search, X, FileSpreadsheet, Wrench, FileDown, IdCard, UserPlus, UserMinus
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -217,6 +217,53 @@ const getResidentStatusLabel = (status) => {
  return 'Belum Diketahui';
 };
 
+// ── Kelola Kontrak (tenant) ─────────────────────────────────
+const isTenantOpen = ref(false);
+const tenantHouse = ref(null);
+const tenantMode = ref('create'); // 'create' | 'edit'
+const tenantForm = useForm({
+ name: '',
+ phone_number: '',
+});
+
+const openTenantCreate = (house) => {
+ if (!demoGuard()) return;
+ tenantHouse.value = house;
+ tenantMode.value = 'create';
+ tenantForm.reset();
+ isTenantOpen.value = true;
+};
+
+const openTenantEdit = (house) => {
+ if (!demoGuard()) return;
+ tenantHouse.value = house;
+ tenantMode.value = 'edit';
+ tenantForm.reset();
+ tenantForm.name = house.tenant?.name || '';
+ tenantForm.phone_number = house.tenant?.phone_number || '';
+ isTenantOpen.value = true;
+};
+
+const submitTenant = () => {
+ if (tenantMode.value === 'create') {
+  tenantForm.post(route('admin.warga.tenant.store', tenantHouse.value.id), {
+   preserveScroll: true,
+   onSuccess: () => { isTenantOpen.value = false; tenantForm.reset(); },
+  });
+ } else {
+  tenantForm.put(route('admin.warga.tenant.update', tenantHouse.value.id), {
+   preserveScroll: true,
+   onSuccess: () => { isTenantOpen.value = false; tenantForm.reset(); },
+  });
+ }
+};
+
+const removeTenant = (house) => {
+ if (!demoGuard()) return;
+ if (!confirm(`Hapus data kontrak (${house.tenant?.name || '-'}) dari rumah ${house.blok}/${house.nomor}?\n\nKK & KTP kontrak juga akan terhapus.`)) return;
+ router.delete(route('admin.warga.tenant.destroy', house.id), { preserveScroll: true });
+};
+
 const getResidentStatusVariant = (status) => {
  if (status === 'pemilik') return 'default';
  if (status === 'kontrak') return 'outline';
@@ -343,8 +390,8 @@ const stats = computed(() => {
  <TableHeader>
  <TableRow class="hover:bg-transparent border-slate-200">
  <TableHead class="w-32">Rumah</TableHead>
- <TableHead>Pemilik / Penghuni</TableHead>
- <TableHead>Kontak</TableHead>
+ <TableHead>Pemilik</TableHead>
+ <TableHead>Kontrak</TableHead>
  <TableHead class="text-center">Status Huni</TableHead>
  <TableHead class="text-center">Status Kepemilikan</TableHead>
   <TableHead class="text-center">Aksi</TableHead>
@@ -367,9 +414,30 @@ const stats = computed(() => {
  <div class="text-xs text-slate-500 truncate max-w-[200px]" v-if="house.owner">
  {{ house.owner.email }}
  </div>
+ <div v-if="house.owner?.phone_number" class="text-xs text-slate-400 italic mt-0.5">
+ {{ house.owner.phone_number }}
+ </div>
  </TableCell>
- <TableCell class="text-slate-600 italic text-sm">
- {{ house.owner?.phone_number || '-' }}
+ <TableCell>
+ <template v-if="house.tenant">
+  <div class="font-semibold text-blue-700">
+  {{ house.tenant.name }}
+  </div>
+  <div v-if="house.tenant.phone_number" class="text-xs text-slate-500 italic mt-0.5">
+  {{ house.tenant.phone_number }}
+  </div>
+ </template>
+ <template v-else>
+  <button
+   type="button"
+   class="text-xs text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 disabled:opacity-40"
+   :disabled="isDemo"
+   @click.stop="openTenantCreate(house)"
+  >
+   <UserPlus class="w-3.5 h-3.5" />
+   Tambah Kontrak
+  </button>
+ </template>
  </TableCell>
  <TableCell class="text-center">
  <Badge 
@@ -403,11 +471,53 @@ const stats = computed(() => {
   v-if="house.owner"
   :href="route('admin.warga.profil', { house: house.id })"
   class="h-8 w-8 text-slate-500 hover:text-emerald-600 flex items-center justify-center rounded-md hover:bg-slate-100 transition-colors"
-  title="Lihat Profil Warga (KK, KTP, dll)"
+  title="Profil Pemilik (KK, KTP pemilik)"
   @click.stop
   >
   <IdCard class="w-4 h-4" />
   </Link>
+  <Link
+  v-if="house.tenant"
+  :href="route('admin.warga.profil', { house: house.id, slot: 'tenant' })"
+  class="h-8 w-8 text-slate-500 hover:text-blue-600 flex items-center justify-center rounded-md hover:bg-slate-100 transition-colors"
+  title="Profil Kontrak (KK, KTP kontrak)"
+  @click.stop
+  >
+  <IdCard class="w-4 h-4 fill-blue-50" />
+  </Link>
+  <Button
+  v-if="!house.tenant"
+  variant="ghost"
+  size="icon"
+  class="h-8 w-8 text-slate-500 hover:text-blue-600"
+  :class="isDemo ? 'cursor-not-allowed' : ''"
+  @click.stop="openTenantCreate(house)"
+  title="Tambah data kontrak"
+  >
+  <UserPlus class="w-4 h-4" />
+  </Button>
+  <Button
+  v-else
+  variant="ghost"
+  size="icon"
+  class="h-8 w-8 text-slate-500 hover:text-blue-600"
+  :class="isDemo ? 'cursor-not-allowed' : ''"
+  @click.stop="openTenantEdit(house)"
+  title="Edit data kontrak"
+  >
+  <UserPlus class="w-4 h-4" />
+  </Button>
+  <Button
+  v-if="house.tenant"
+  variant="ghost"
+  size="icon"
+  class="h-8 w-8 text-slate-500 hover:text-red-600"
+  :class="isDemo ? 'cursor-not-allowed' : ''"
+  @click.stop="removeTenant(house)"
+  title="Hapus data kontrak (Hard delete)"
+  >
+  <UserMinus class="w-4 h-4" />
+  </Button>
   <Button
   v-if="!house.is_subsidized"
   variant="ghost"
@@ -740,6 +850,41 @@ const stats = computed(() => {
    </div>
    <DialogFooter>
     <Button variant="outline" @click="isStatsOpen = false">Tutup</Button>
+   </DialogFooter>
+  </DialogContent>
+ </Dialog>
+
+ <!-- Kelola Kontrak Modal -->
+ <Dialog v-model:open="isTenantOpen">
+  <DialogContent class="sm:max-w-[480px]">
+   <DialogHeader>
+    <DialogTitle class="flex items-center gap-2 text-blue-600">
+     <UserPlus class="w-5 h-5" />
+     {{ tenantMode === 'create' ? 'Tambah' : 'Edit' }} Data Kontrak — {{ tenantHouse?.blok }}/{{ tenantHouse?.nomor }}
+    </DialogTitle>
+    <DialogDescription class="pt-2">
+     Data kontrak terpisah dari pemilik (nama, HP, KK & KTP). Pemilik tetap menjadi <strong>{{ tenantHouse?.owner?.name || '-' }}</strong>.
+     <span class="block mt-1 text-xs text-slate-500">Catatan: kontrak tidak punya akun login — 1 email/akun cukup di pemilik.</span>
+    </DialogDescription>
+   </DialogHeader>
+
+   <div class="space-y-4 py-2">
+    <div>
+     <Label for="tenant_name">Nama Penghuni Kontrak <span class="text-red-500">*</span></Label>
+     <Input id="tenant_name" v-model="tenantForm.name" placeholder="Nama lengkap" />
+     <p v-if="tenantForm.errors.name" class="text-xs text-red-500 mt-1">{{ tenantForm.errors.name }}</p>
+    </div>
+    <div>
+     <Label for="tenant_phone">No HP/WhatsApp</Label>
+     <Input id="tenant_phone" v-model="tenantForm.phone_number" placeholder="08xxxxxxxxxx" />
+    </div>
+   </div>
+
+   <DialogFooter class="gap-2 sm:gap-0">
+    <Button variant="outline" @click="isTenantOpen = false">Batal</Button>
+    <Button @click="submitTenant" :disabled="tenantForm.processing" class="bg-blue-600 hover:bg-blue-700 text-white">
+     {{ tenantForm.processing ? 'Memproses...' : (tenantMode === 'create' ? 'Tambah Kontrak' : 'Simpan Perubahan') }}
+    </Button>
    </DialogFooter>
   </DialogContent>
  </Dialog>

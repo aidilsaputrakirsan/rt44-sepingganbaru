@@ -54,6 +54,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/admin/warga', [\App\Http\Controllers\WargaController::class, 'store'])->name('admin.warga.store');
     Route::put('/admin/warga/{house}', [\App\Http\Controllers\WargaController::class, 'update'])->name('admin.warga.update');
     Route::post('/admin/warga/{house}/recalculate', [\App\Http\Controllers\WargaController::class, 'recalculateDues'])->name('admin.warga.recalculate');
+    Route::post('/admin/warga/{house}/tenant', [\App\Http\Controllers\WargaController::class, 'storeTenant'])->name('admin.warga.tenant.store');
+    Route::put('/admin/warga/{house}/tenant', [\App\Http\Controllers\WargaController::class, 'updateTenant'])->name('admin.warga.tenant.update');
+    Route::delete('/admin/warga/{house}/tenant', [\App\Http\Controllers\WargaController::class, 'destroyTenant'])->name('admin.warga.tenant.destroy');
     Route::get('/admin/warga/{house}/koreksi-tagihan', [\App\Http\Controllers\WargaController::class, 'duesForKoreksi'])->name('admin.warga.koreksi.dues');
     Route::post('/admin/warga/{house}/koreksi-tagihan', [\App\Http\Controllers\WargaController::class, 'koreksiTagihan'])->name('admin.warga.koreksi.submit');
     Route::delete('/admin/warga/{house}', [\App\Http\Controllers\WargaController::class, 'destroy'])->name('admin.warga.destroy');
@@ -62,6 +65,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/warga/export-status-pdf', [\App\Http\Controllers\WargaController::class, 'exportStatusPdf'])->name('admin.warga.export-status-pdf');
     Route::get('/admin/warga/export-excel', [\App\Http\Controllers\WargaController::class, 'exportExcel'])->name('admin.warga.export-excel');
     Route::get('/admin/warga/{house}/profil', [\App\Http\Controllers\ResidentProfileController::class, 'adminShow'])->name('admin.warga.profil');
+    Route::put('/admin/warga/{house}/profil', [\App\Http\Controllers\ResidentProfileController::class, 'adminUpdate'])->name('admin.warga.profil.update');
+    Route::post('/admin/warga/{house}/profil/kk', [\App\Http\Controllers\ResidentProfileController::class, 'adminUploadKk'])->name('admin.warga.profil.kk.upload');
+    Route::delete('/admin/warga/{house}/profil/kk', [\App\Http\Controllers\ResidentProfileController::class, 'adminDeleteKk'])->name('admin.warga.profil.kk.delete');
+    Route::post('/admin/warga/{house}/profil/ktp', [\App\Http\Controllers\ResidentProfileController::class, 'adminUploadKtp'])->name('admin.warga.profil.ktp.upload');
+    Route::delete('/admin/warga/{house}/profil/ktp/{idCard}', [\App\Http\Controllers\ResidentProfileController::class, 'adminDeleteKtp'])->name('admin.warga.profil.ktp.delete');
 
     // Expense Routes
     Route::get('/admin/expenses', [\App\Http\Controllers\ExpenseController::class, 'index'])->name('admin.expenses.index');

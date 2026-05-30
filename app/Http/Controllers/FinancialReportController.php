@@ -12,8 +12,16 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class FinancialReportController extends Controller
 {
+    private function guardSuperAdmin(): void
+    {
+        if (!in_array(auth()->user()?->role, ['admin', 'demo'])) {
+            abort(403, 'Hanya bendahara yang dapat mengakses laporan keuangan.');
+        }
+    }
+
     public function index(Request $request)
     {
+        $this->guardSuperAdmin();
         $month = $request->input('month', Carbon::now()->month);
         $year = $request->input('year', Carbon::now()->year);
 
@@ -28,6 +36,7 @@ class FinancialReportController extends Controller
 
     public function updateInitialBalance(Request $request)
     {
+        $this->guardSuperAdmin();
         $request->validate([
             'period' => 'required|date_format:Y-m',
             'amount' => 'required|numeric',
@@ -45,6 +54,7 @@ class FinancialReportController extends Controller
 
     public function deleteInitialBalance(Request $request)
     {
+        $this->guardSuperAdmin();
         $request->validate([
             'period' => 'required|date_format:Y-m',
         ]);
@@ -58,6 +68,7 @@ class FinancialReportController extends Controller
 
     public function exportPdf(Request $request)
     {
+        $this->guardSuperAdmin();
         $month = $request->input('month', Carbon::now()->month);
         $year = $request->input('year', Carbon::now()->year);
 

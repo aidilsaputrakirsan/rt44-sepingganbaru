@@ -13,7 +13,15 @@ const props = defineProps({
 const user = usePage().props.auth.user;
 
 const isAdmin = computed(() => user.role === 'admin' || user.role === 'demo');
+const isKetua = computed(() => user.role === 'ketua');
 const isDemo = computed(() => user.role === 'demo');
+
+const roleLabel = computed(() => {
+    if (user.role === 'admin') return 'Bendahara';
+    if (user.role === 'ketua') return 'Ketua';
+    if (user.role === 'demo') return 'Demo';
+    return null;
+});
 
 const menuItems = computed(() => {
     if (isAdmin.value) {
@@ -25,11 +33,17 @@ const menuItems = computed(() => {
             { name: 'Pengeluaran', icon: Receipt, route: 'admin.expenses.index' },
             { name: 'Laporan Keuangan', icon: PieChart, route: 'admin.report.index' },
         ];
+    } else if (isKetua.value) {
+        return [
+            { name: 'Dashboard', icon: LayoutDashboard, route: 'admin.dashboard' },
+            { name: 'Data Warga', icon: UserCircle, route: 'admin.warga.index' },
+        ];
     } else {
         return [
             { name: 'Dashboard', icon: Home, route: 'dashboard' },
             { name: 'Kalender Iuran', icon: Calendar, route: 'dashboard.calendar' },
-            { name: 'Profil Warga', icon: IdCard, route: 'profil.show' },
+            // Profil Warga di-hide dari sidebar warga — admin yang manage CRUD via Data Warga.
+            // Route tetap aktif (profil.show) untuk akses langsung jika dibutuhkan.
         ];
     }
 });
@@ -77,7 +91,13 @@ const menuItems = computed(() => {
                     <UserCircle class="w-5 h-5 text-amber-400" />
                 </div>
                 <div class="ml-2 min-w-0">
-                    <p class="text-sm font-medium text-white truncate">{{ user.name }}</p>
+                    <div class="flex items-center gap-1.5">
+                        <p class="text-sm font-medium text-white truncate">{{ user.name }}</p>
+                        <span v-if="roleLabel" class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                              :class="user.role === 'admin' ? 'bg-emerald-500/20 text-emerald-300' : (user.role === 'ketua' ? 'bg-blue-500/20 text-blue-300' : 'bg-amber-500/20 text-amber-300')">
+                            {{ roleLabel }}
+                        </span>
+                    </div>
                     <p class="text-[11px] text-slate-400 truncate">{{ user.no_rumah || user.email }}</p>
                 </div>
             </div>

@@ -26,8 +26,38 @@ class AdminController extends Controller
     }
     public function index(Request $request)
     {
-        if (!in_array(auth()->user()->role, ['admin', 'demo'])) {
+        $role = auth()->user()->role;
+        if (!in_array($role, ['admin', 'demo', 'ketua'])) {
             return redirect()->route('dashboard');
+        }
+
+        // Ketua: render dashboard minimal (cuma profil completion, tanpa data keuangan)
+        if ($role === 'ketua') {
+            $housesWithOwner = House::with(['owner.residentProfile.idCards'])
+                ->whereNotNull('owner_id')
+                ->orderByRaw("REGEXP_SUBSTR(blok, '^[A-Za-z]+') ASC")
+                ->orderByRaw("CAST(REGEXP_SUBSTR(blok, '[0-9]+') AS UNSIGNED) ASC")
+                ->orderByRaw('CAST(nomor AS UNSIGNED) ASC')
+                ->get();
+
+            $profileStatuses = $housesWithOwner->map(function ($house) {
+                $profile = $house->owner?->residentProfile;
+                $hasKk = $profile && !empty($profile->kk_path);
+                $ktpCount = $profile ? $profile->idCards->count() : 0;
+                $hasKtp = $ktpCount > 0;
+                $status = $hasKk && $hasKtp ? 'lengkap' : (($hasKk || $hasKtp) ? 'sebagian' : 'belum');
+                return [
+                    'name' => $house->blok . '/' . $house->nomor,
+                    'status' => $status,
+                    'has_kk' => $hasKk,
+                    'has_ktp' => $hasKtp,
+                    'ktp_count' => $ktpCount,
+                ];
+            })->values();
+
+            return Inertia::render('Admin/KetuaDashboard', [
+                'profileStatuses' => $profileStatuses,
+            ]);
         }
 
         $year = (int) $request->input('year', now()->year);

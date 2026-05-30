@@ -9,6 +9,7 @@ class ResidentProfile extends Model
     protected $fillable = [
         'user_id',
         'jumlah_anggota_keluarga',
+        'nomor_kk',
         'kk_path',
     ];
 

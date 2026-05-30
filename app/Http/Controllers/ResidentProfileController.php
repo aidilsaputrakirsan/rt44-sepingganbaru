@@ -18,24 +18,27 @@ class ResidentProfileController extends Controller
     {
         $user = auth()->user();
 
-        if (in_array($user->role, ['admin', 'demo'])) {
+        if (in_array($user->role, ['admin', 'demo', 'ketua'])) {
             return redirect()->route('admin.dashboard');
         }
 
         $profile = ResidentProfile::firstOrCreate(['user_id' => $user->id]);
         $profile->load('idCards');
 
-        $house = $user->houses()->first();
+        // Cari rumah lewat owner_id, lalu fallback ke tenant_id
+        $house = $user->houses()->first() ?? $user->tenantedHouses()->first();
 
         return Inertia::render('Warga/Profile', [
             'profile' => [
                 'id' => $profile->id,
                 'jumlah_anggota_keluarga' => $profile->jumlah_anggota_keluarga,
+                'nomor_kk' => $profile->nomor_kk,
                 'kk_path' => $profile->kk_path,
                 'kk_url' => $profile->kk_path ? Storage::url($profile->kk_path) : null,
                 'id_cards' => $profile->idCards->map(fn ($c) => [
                     'id' => $c->id,
                     'label' => $c->label,
+                    'nomor_ktp' => $c->nomor_ktp,
                     'file_path' => $c->file_path,
                     'file_url' => Storage::url($c->file_path),
                 ]),
@@ -54,12 +57,13 @@ class ResidentProfileController extends Controller
     {
         $user = auth()->user();
 
-        if (in_array($user->role, ['admin', 'demo'])) {
+        if (in_array($user->role, ['admin', 'demo', 'ketua'])) {
             abort(403);
         }
 
         $validated = $request->validate([
             'jumlah_anggota_keluarga' => 'nullable|integer|min:0|max:50',
+            'nomor_kk' => 'nullable|string|max:32',
         ]);
 
         $profile = ResidentProfile::firstOrCreate(['user_id' => $user->id]);
@@ -72,7 +76,7 @@ class ResidentProfileController extends Controller
     {
         $user = auth()->user();
 
-        if (in_array($user->role, ['admin', 'demo'])) {
+        if (in_array($user->role, ['admin', 'demo', 'ketua'])) {
             abort(403);
         }
 
@@ -96,7 +100,7 @@ class ResidentProfileController extends Controller
     {
         $user = auth()->user();
 
-        if (in_array($user->role, ['admin', 'demo'])) {
+        if (in_array($user->role, ['admin', 'demo', 'ketua'])) {
             abort(403);
         }
 
@@ -117,12 +121,13 @@ class ResidentProfileController extends Controller
     {
         $user = auth()->user();
 
-        if (in_array($user->role, ['admin', 'demo'])) {
+        if (in_array($user->role, ['admin', 'demo', 'ketua'])) {
             abort(403);
         }
 
         $validated = $request->validate([
             'label' => 'nullable|string|max:100',
+            'nomor_ktp' => 'nullable|string|max:32',
             'ktp_file' => self::FILE_RULES,
         ]);
 
@@ -133,6 +138,7 @@ class ResidentProfileController extends Controller
         ResidentIdCard::create([
             'resident_profile_id' => $profile->id,
             'label' => $validated['label'] ?? null,
+            'nomor_ktp' => $validated['nomor_ktp'] ?? null,
             'file_path' => $path,
         ]);
 
@@ -143,7 +149,7 @@ class ResidentProfileController extends Controller
     {
         $user = auth()->user();
 
-        if (in_array($user->role, ['admin', 'demo'])) {
+        if (in_array($user->role, ['admin', 'demo', 'ketua'])) {
             abort(403);
         }
 
@@ -160,18 +166,126 @@ class ResidentProfileController extends Controller
         return back()->with('success', 'KTP dihapus.');
     }
 
-    public function adminShow(House $house)
+    /**
+     * Resolve user target untuk admin endpoint berdasarkan slot.
+     * Return [user, slot] atau abort dengan error.
+     */
+    private function resolveSlotUser(Request $request, House $house): array
+    {
+        if (!in_array(auth()->user()->role, ['admin', 'demo', 'ketua'])) {
+            abort(403);
+        }
+        $slot = $request->input('slot', 'owner');
+        $target = $slot === 'tenant' ? $house->tenant : $house->owner;
+        if (!$target) {
+            abort(404, $slot === 'tenant' ? 'Rumah belum memiliki data kontrak.' : 'Rumah belum memiliki pemilik.');
+        }
+        return [$target, $slot];
+    }
+
+    public function adminUpdate(Request $request, House $house)
+    {
+        [$user, $slot] = $this->resolveSlotUser($request, $house);
+
+        $validated = $request->validate([
+            'jumlah_anggota_keluarga' => 'nullable|integer|min:0|max:50',
+            'nomor_kk' => 'nullable|string|max:32',
+        ]);
+
+        $profile = ResidentProfile::firstOrCreate(['user_id' => $user->id]);
+        $profile->update($validated);
+
+        return back()->with('success', 'Data profil berhasil diperbarui.');
+    }
+
+    public function adminUploadKk(Request $request, House $house)
+    {
+        [$user, $slot] = $this->resolveSlotUser($request, $house);
+
+        $request->validate(['kk_file' => self::FILE_RULES]);
+        $profile = ResidentProfile::firstOrCreate(['user_id' => $user->id]);
+
+        if ($profile->kk_path && Storage::disk('public')->exists($profile->kk_path)) {
+            Storage::disk('public')->delete($profile->kk_path);
+        }
+        $path = $request->file('kk_file')->store("profiles/{$user->id}", 'public');
+        $profile->update(['kk_path' => $path]);
+
+        return back()->with('success', 'Kartu Keluarga berhasil diunggah.');
+    }
+
+    public function adminDeleteKk(Request $request, House $house)
+    {
+        [$user, $slot] = $this->resolveSlotUser($request, $house);
+
+        $profile = $user->residentProfile;
+        if (!$profile || !$profile->kk_path) {
+            return back();
+        }
+        if (Storage::disk('public')->exists($profile->kk_path)) {
+            Storage::disk('public')->delete($profile->kk_path);
+        }
+        $profile->update(['kk_path' => null]);
+
+        return back()->with('success', 'Kartu Keluarga dihapus.');
+    }
+
+    public function adminUploadKtp(Request $request, House $house)
+    {
+        [$user, $slot] = $this->resolveSlotUser($request, $house);
+
+        $validated = $request->validate([
+            'label' => 'nullable|string|max:100',
+            'nomor_ktp' => 'nullable|string|max:32',
+            'ktp_file' => self::FILE_RULES,
+        ]);
+
+        $profile = ResidentProfile::firstOrCreate(['user_id' => $user->id]);
+        $path = $request->file('ktp_file')->store("profiles/{$user->id}", 'public');
+
+        ResidentIdCard::create([
+            'resident_profile_id' => $profile->id,
+            'label' => $validated['label'] ?? null,
+            'nomor_ktp' => $validated['nomor_ktp'] ?? null,
+            'file_path' => $path,
+        ]);
+
+        return back()->with('success', 'KTP berhasil diunggah.');
+    }
+
+    public function adminDeleteKtp(Request $request, House $house, ResidentIdCard $idCard)
+    {
+        [$user, $slot] = $this->resolveSlotUser($request, $house);
+
+        // Pastikan KTP yang akan dihapus benar2 milik user di slot ini
+        if ($idCard->profile->user_id !== $user->id) {
+            abort(403, 'KTP tidak terkait dengan slot ini.');
+        }
+
+        if (Storage::disk('public')->exists($idCard->file_path)) {
+            Storage::disk('public')->delete($idCard->file_path);
+        }
+        $idCard->delete();
+
+        return back()->with('success', 'KTP dihapus.');
+    }
+
+    public function adminShow(Request $request, House $house)
     {
         $user = auth()->user();
-        if (!in_array($user->role, ['admin', 'demo'])) {
+        if (!in_array($user->role, ['admin', 'demo', 'ketua'])) {
             return redirect()->route('dashboard');
         }
 
-        if (!$house->owner_id) {
-            return back()->with('error', 'Rumah ini belum memiliki pemilik terdaftar.');
+        $slot = $request->input('slot', 'owner'); // 'owner' | 'tenant'
+
+        $targetUser = $slot === 'tenant' ? $house->tenant : $house->owner;
+        if (!$targetUser) {
+            $label = $slot === 'tenant' ? 'data kontrak' : 'pemilik';
+            return back()->with('error', "Rumah ini belum memiliki {$label} terdaftar.");
         }
 
-        $owner = $house->owner;
+        $owner = $targetUser;
         $profile = ResidentProfile::with('idCards')->firstOrCreate(['user_id' => $owner->id]);
 
         return Inertia::render('Admin/Warga/Profile', [
@@ -182,6 +296,7 @@ class ResidentProfileController extends Controller
                 'status_huni' => $house->status_huni,
                 'resident_status' => $house->resident_status,
             ],
+            'slot' => $slot,
             'owner' => [
                 'name' => $owner->name,
                 'email' => $owner->email,
@@ -189,11 +304,14 @@ class ResidentProfileController extends Controller
             ],
             'profile' => [
                 'jumlah_anggota_keluarga' => $profile->jumlah_anggota_keluarga,
+                'nomor_kk' => $profile->nomor_kk,
                 'kk_path' => $profile->kk_path,
                 'kk_url' => $profile->kk_path ? Storage::url($profile->kk_path) : null,
                 'id_cards' => $profile->idCards->map(fn ($c) => [
                     'id' => $c->id,
                     'label' => $c->label,
+                    'nomor_ktp' => $c->nomor_ktp,
+                    'file_path' => $c->file_path,
                     'file_url' => Storage::url($c->file_path),
                 ]),
             ],

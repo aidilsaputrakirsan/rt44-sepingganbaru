@@ -17,9 +17,20 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
 class WargaController extends Controller
 {
+    /**
+     * Guard untuk aksi yang hanya boleh dilakukan bendahara (admin/demo).
+     * Block ketua dari aksi yang punya implikasi keuangan (delete, koreksi, import).
+     */
+    private function guardSuperAdmin(): void
+    {
+        if (!in_array(auth()->user()?->role, ['admin', 'demo'])) {
+            abort(403, 'Aksi ini hanya untuk bendahara.');
+        }
+    }
+
     public function index()
     {
-        $houses = House::with('owner')
+        $houses = House::with(['owner', 'tenant'])
             ->orderByRaw("REGEXP_SUBSTR(blok, '^[A-Za-z]+') ASC")
             ->orderByRaw("CAST(REGEXP_SUBSTR(blok, '[0-9]+') AS UNSIGNED) ASC")
             ->orderByRaw('CAST(nomor AS UNSIGNED) ASC')
@@ -28,12 +39,21 @@ class WargaController extends Controller
 
         if (auth()->user()->role === 'demo') {
             $houses->each(function ($house) {
-                if ($house->owner) {
-                    $house->owner->name = $this->censorName($house->owner->name);
-                    $house->owner->email = $this->censorEmail($house->owner->email);
-                    $house->owner->phone_number = $this->censorPhone($house->owner->phone_number);
+                foreach (['owner', 'tenant'] as $rel) {
+                    if ($house->{$rel}) {
+                        $house->{$rel}->name = $this->censorName($house->{$rel}->name);
+                        $house->{$rel}->email = $this->censorEmail($house->{$rel}->email);
+                        $house->{$rel}->phone_number = $this->censorPhone($house->{$rel}->phone_number);
+                    }
                 }
             });
+        }
+
+        // Ketua: render halaman yg disederhanakan (card-based, tanpa aksi keuangan)
+        if (auth()->user()->role === 'ketua') {
+            return Inertia::render('Admin/Warga/IndexKetua', [
+                'houses' => $houses
+            ]);
         }
 
         return Inertia::render('Admin/Warga/Index', [
@@ -195,6 +215,7 @@ class WargaController extends Controller
 
     public function recalculateDues(House $house)
     {
+        $this->guardSuperAdmin();
         $currentPeriod = \Carbon\Carbon::now()->startOfMonth()->format('Y-m-d');
 
         if ($house->is_subsidized) {
@@ -212,6 +233,92 @@ class WargaController extends Controller
             ->update(['amount' => $newAmount]);
 
         return back()->with('success', "Berhasil recalculate {$updated} tagihan rumah {$house->blok}/{$house->nomor} menjadi Rp " . number_format($newAmount, 0, ',', '.'));
+    }
+
+    public function storeTenant(Request $request, House $house)
+    {
+        if ($house->tenant_id) {
+            return back()->with('error', 'Rumah ini sudah memiliki data kontrak. Silakan edit data yang ada.');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone_number' => 'nullable|string|max:50',
+        ]);
+
+        // Email internal — tidak dipakai untuk login (password random unguessable).
+        // Hanya untuk satisfy unique constraint di users.email.
+        $internalEmail = 'tenant_' . $house->id . '_' . now()->timestamp . '@internal.rt44.local';
+
+        DB::transaction(function () use ($validated, $house, $internalEmail) {
+            $tenant = User::create([
+                'name' => $validated['name'],
+                'email' => $internalEmail,
+                'password' => Hash::make(\Illuminate\Support\Str::random(64)),
+                'role' => 'warga',
+                'phone_number' => $validated['phone_number'] ?? null,
+                'no_rumah' => $house->blok . '/' . $house->nomor,
+            ]);
+
+            $house->update(['tenant_id' => $tenant->id]);
+        });
+
+        return back()->with('success', 'Data kontrak berhasil ditambahkan.');
+    }
+
+    public function updateTenant(Request $request, House $house)
+    {
+        if (!$house->tenant_id || !$house->tenant) {
+            return back()->with('error', 'Rumah ini belum memiliki data kontrak.');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone_number' => 'nullable|string|max:50',
+        ]);
+
+        // Email & password tenant tidak pernah diubah (internal-only, no login).
+        $house->tenant->update([
+            'name' => $validated['name'],
+            'phone_number' => $validated['phone_number'] ?? null,
+        ]);
+
+        return back()->with('success', 'Data kontrak berhasil diperbarui.');
+    }
+
+    public function destroyTenant(House $house)
+    {
+        if (!$house->tenant_id) {
+            return back();
+        }
+
+        DB::transaction(function () use ($house) {
+            $tenant = $house->tenant;
+            $tenantId = $house->tenant_id;
+
+            // Unlink dulu supaya cascade FK aman
+            $house->update(['tenant_id' => null]);
+
+            if ($tenant) {
+                // Hapus file fisik KK + KTP milik tenant
+                $profile = $tenant->residentProfile;
+                if ($profile) {
+                    if ($profile->kk_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($profile->kk_path)) {
+                        \Illuminate\Support\Facades\Storage::disk('public')->delete($profile->kk_path);
+                    }
+                    foreach ($profile->idCards as $card) {
+                        if ($card->file_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($card->file_path)) {
+                            \Illuminate\Support\Facades\Storage::disk('public')->delete($card->file_path);
+                        }
+                    }
+                    // Cascade delete profile + idCards via FK cascadeOnDelete saat user dihapus
+                }
+
+                $tenant->delete();
+            }
+        });
+
+        return back()->with('success', 'Data kontrak berhasil dihapus.');
     }
 
     public function exportStatusPdf()
@@ -335,6 +442,7 @@ class WargaController extends Controller
 
     public function duesForKoreksi(House $house)
     {
+        $this->guardSuperAdmin();
         $suggested = \App\Services\DuesService::calculate($house);
 
         $dues = \App\Models\Due::where('house_id', $house->id)
@@ -360,6 +468,7 @@ class WargaController extends Controller
 
     public function koreksiTagihan(Request $request, House $house)
     {
+        $this->guardSuperAdmin();
         $validated = $request->validate([
             'corrections'           => 'required|array|min:1',
             'corrections.*.due_id'  => 'required|integer|exists:dues,id',
@@ -380,12 +489,14 @@ class WargaController extends Controller
 
     public function destroy(House $house)
     {
+        $this->guardSuperAdmin();
         $house->delete();
         return back()->with('success', 'Data rumah berhasil dihapus.');
     }
 
     public function import(Request $request)
     {
+        $this->guardSuperAdmin();
         // 1. Validasi file upload
         $request->validate([
             'file' => 'required|file|max:5120', // max 5MB

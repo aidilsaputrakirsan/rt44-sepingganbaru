@@ -16,6 +16,7 @@ class House extends Model
         'is_connected',
         'meteran_count',
         'owner_id',
+        'tenant_id',
         'is_subsidized',
     ];
 
@@ -24,9 +25,13 @@ class House extends Model
         return $this->belongsTo(User::class, 'owner_id');
     }
 
+    public function tenant()
+    {
+        return $this->belongsTo(User::class, 'tenant_id');
+    }
+
     public function dues()
     {
         return $this->hasMany(Due::class);
     }
-    //
 }

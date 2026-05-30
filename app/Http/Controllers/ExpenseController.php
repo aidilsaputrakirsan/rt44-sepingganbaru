@@ -8,8 +8,20 @@ use Inertia\Inertia;
 
 class ExpenseController extends Controller
 {
+    /**
+     * Hanya bendahara (admin) & demo yang boleh kelola pengeluaran.
+     * Ketua / warga dilarang akses lewat URL langsung.
+     */
+    private function guardSuperAdmin(): void
+    {
+        if (!in_array(auth()->user()?->role, ['admin', 'demo'])) {
+            abort(403, 'Hanya bendahara yang dapat mengakses halaman pengeluaran.');
+        }
+    }
+
     public function index()
     {
+        $this->guardSuperAdmin();
         $expenses = Expense::orderBy('date', 'desc')->get();
         
         // Group expenses by Year-Month, e.g., '2026-02' => [...]
@@ -26,6 +38,7 @@ class ExpenseController extends Controller
 
     public function clone(Request $request)
     {
+        $this->guardSuperAdmin();
         $request->validate([
             'source_month' => 'required|date_format:Y-m',
             'target_month' => 'required|date_format:Y-m',
@@ -58,6 +71,7 @@ class ExpenseController extends Controller
 
     public function store(Request $request)
     {
+        $this->guardSuperAdmin();
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'amount' => 'required|numeric|min:0',
@@ -73,6 +87,7 @@ class ExpenseController extends Controller
 
     public function update(Request $request, Expense $expense)
     {
+        $this->guardSuperAdmin();
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'amount' => 'required|numeric|min:0',
@@ -88,6 +103,7 @@ class ExpenseController extends Controller
 
     public function destroy(Expense $expense)
     {
+        $this->guardSuperAdmin();
         $expense->delete();
         return back()->with('success', 'Pengeluaran berhasil dihapus.');
     }

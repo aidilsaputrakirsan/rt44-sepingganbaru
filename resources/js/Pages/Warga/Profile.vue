@@ -16,10 +16,11 @@ const props = defineProps({
 
 const form = useForm({
     jumlah_anggota_keluarga: props.profile.jumlah_anggota_keluarga ?? '',
+    nomor_kk: props.profile.nomor_kk ?? '',
 });
 
 const kkForm = useForm({ kk_file: null });
-const ktpForm = useForm({ label: '', ktp_file: null });
+const ktpForm = useForm({ label: '', nomor_ktp: '', ktp_file: null });
 
 const kkInputRef = ref(null);
 const ktpInputRef = ref(null);
@@ -168,20 +169,37 @@ const fileExt = (path) => (path?.split('.').pop() || '').toUpperCase();
                 </CardHeader>
                 <CardContent>
                     <form @submit.prevent="submitProfile" class="space-y-4">
-                        <div>
-                            <Label for="jumlah_anggota_keluarga">Jumlah Anggota Keluarga</Label>
-                            <Input
-                                id="jumlah_anggota_keluarga"
-                                v-model="form.jumlah_anggota_keluarga"
-                                type="number"
-                                min="0"
-                                max="50"
-                                placeholder="0"
-                                class="mt-1 max-w-xs"
-                            />
-                            <p v-if="form.errors.jumlah_anggota_keluarga" class="text-xs text-red-600 mt-1">
-                                {{ form.errors.jumlah_anggota_keluarga }}
-                            </p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <Label for="jumlah_anggota_keluarga">Jumlah Anggota Keluarga</Label>
+                                <Input
+                                    id="jumlah_anggota_keluarga"
+                                    v-model="form.jumlah_anggota_keluarga"
+                                    type="number"
+                                    min="0"
+                                    max="50"
+                                    placeholder="0"
+                                    class="mt-1"
+                                />
+                                <p v-if="form.errors.jumlah_anggota_keluarga" class="text-xs text-red-600 mt-1">
+                                    {{ form.errors.jumlah_anggota_keluarga }}
+                                </p>
+                            </div>
+                            <div>
+                                <Label for="nomor_kk">Nomor KK <span class="text-xs text-muted-foreground font-normal">(opsional)</span></Label>
+                                <Input
+                                    id="nomor_kk"
+                                    v-model="form.nomor_kk"
+                                    type="text"
+                                    inputmode="numeric"
+                                    maxlength="32"
+                                    placeholder="16 digit nomor KK"
+                                    class="mt-1"
+                                />
+                                <p v-if="form.errors.nomor_kk" class="text-xs text-red-600 mt-1">
+                                    {{ form.errors.nomor_kk }}
+                                </p>
+                            </div>
                         </div>
                         <div class="flex justify-end">
                             <Button type="submit" :disabled="form.processing">Simpan</Button>
@@ -249,33 +267,50 @@ const fileExt = (path) => (path?.split('.').pop() || '').toUpperCase();
                 </CardHeader>
                 <CardContent class="space-y-4">
                     <!-- Form tambah KTP -->
-                    <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-end p-4 rounded-lg bg-slate-50 border border-slate-200">
-                        <div>
-                            <Label for="ktp_label">Label (opsional)</Label>
-                            <Input
-                                id="ktp_label"
-                                v-model="ktpForm.label"
-                                placeholder="mis. Kepala Keluarga, Istri, Anak 1"
-                                class="mt-1"
-                            />
+                    <div class="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-3">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <Label for="ktp_label">Label (opsional)</Label>
+                                <Input
+                                    id="ktp_label"
+                                    v-model="ktpForm.label"
+                                    placeholder="mis. Kepala Keluarga, Istri, Anak 1"
+                                    class="mt-1"
+                                />
+                            </div>
+                            <div>
+                                <Label for="ktp_nomor">Nomor KTP (opsional)</Label>
+                                <Input
+                                    id="ktp_nomor"
+                                    v-model="ktpForm.nomor_ktp"
+                                    type="text"
+                                    inputmode="numeric"
+                                    maxlength="32"
+                                    placeholder="16 digit nomor KTP"
+                                    class="mt-1"
+                                />
+                            </div>
                         </div>
-                        <div>
-                            <Label for="ktp_file">File KTP</Label>
-                            <input
-                                id="ktp_file"
-                                ref="ktpInputRef"
-                                type="file"
-                                accept=".jpg,.jpeg,.png,.pdf"
-                                class="mt-1 block w-full text-sm text-slate-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 file:cursor-pointer"
-                                @change="onKtpChange"
-                            />
+                        <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
+                            <div>
+                                <Label for="ktp_file">File KTP <span class="text-red-500">*</span></Label>
+                                <input
+                                    id="ktp_file"
+                                    ref="ktpInputRef"
+                                    type="file"
+                                    accept=".jpg,.jpeg,.png,.pdf"
+                                    class="mt-1 block w-full text-sm text-slate-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 file:cursor-pointer"
+                                    @change="onKtpChange"
+                                />
+                            </div>
+                            <Button type="button" @click="submitKtp" :disabled="ktpForm.processing">
+                                <Upload class="w-4 h-4 mr-1.5" /> Upload
+                            </Button>
                         </div>
-                        <Button type="button" @click="submitKtp" :disabled="ktpForm.processing">
-                            <Upload class="w-4 h-4 mr-1.5" /> Upload
-                        </Button>
                     </div>
                     <p v-if="ktpForm.errors.ktp_file" class="text-xs text-red-600">{{ ktpForm.errors.ktp_file }}</p>
                     <p v-if="ktpForm.errors.label" class="text-xs text-red-600">{{ ktpForm.errors.label }}</p>
+                    <p v-if="ktpForm.errors.nomor_ktp" class="text-xs text-red-600">{{ ktpForm.errors.nomor_ktp }}</p>
                     <p v-if="ktpForm.progress" class="text-xs text-muted-foreground">
                         Mengunggah... {{ ktpForm.progress.percentage }}%
                     </p>
@@ -293,6 +328,7 @@ const fileExt = (path) => (path?.split('.').pop() || '').toUpperCase();
                                     <p class="text-sm font-medium text-slate-900 truncate">
                                         {{ card.label || 'KTP tanpa label' }}
                                     </p>
+                                    <p v-if="card.nomor_ktp" class="text-xs text-slate-500 font-mono">NIK: {{ card.nomor_ktp }}</p>
                                     <a :href="card.file_url" target="_blank" class="text-xs text-amber-700 hover:underline">
                                         Lihat / Download ({{ fileExt(card.file_path) }})
                                     </a>

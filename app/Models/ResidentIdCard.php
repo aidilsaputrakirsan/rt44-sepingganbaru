@@ -9,6 +9,7 @@ class ResidentIdCard extends Model
     protected $fillable = [
         'resident_profile_id',
         'label',
+        'nomor_ktp',
         'file_path',
     ];
 
