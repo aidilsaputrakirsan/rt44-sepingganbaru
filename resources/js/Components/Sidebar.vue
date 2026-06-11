@@ -1,7 +1,7 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart, IdCard, Newspaper } from 'lucide-vue-next';
+import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart, IdCard, Newspaper, FileText } from 'lucide-vue-next';
 
 const props = defineProps({
     mobile: {
@@ -38,6 +38,7 @@ const menuItems = computed(() => {
         return [
             { name: 'Dashboard', icon: LayoutDashboard, route: 'admin.dashboard' },
             { name: 'Data Warga', icon: UserCircle, route: 'admin.warga.index' },
+            { name: 'Surat Pengantar', icon: FileText, route: 'ketua.surat-pengantar.index' },
             { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
         ];
     } else {

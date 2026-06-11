@@ -14,6 +14,50 @@ class ResidentProfileController extends Controller
     private const MAX_KB = 5120;
     private const FILE_RULES = 'file|mimes:jpg,jpeg,png,pdf|max:5120';
 
+    /** Aturan validasi field identitas anggota keluarga (semua opsional). */
+    private const IDENTITY_RULES = [
+        'label'             => 'nullable|string|max:100',
+        'nama'              => 'nullable|string|max:100',
+        'nomor_ktp'         => 'nullable|string|max:32',
+        'jenis_kelamin'     => 'nullable|in:Laki-laki,Perempuan',
+        'tempat_lahir'      => 'nullable|string|max:100',
+        'tanggal_lahir'     => 'nullable|date',
+        'status_perkawinan' => 'nullable|string|max:30',
+        'agama'             => 'nullable|string|max:30',
+        'pekerjaan'         => 'nullable|string|max:100',
+        'golongan_darah'    => 'nullable|string|max:5',
+        'kewarganegaraan'   => 'nullable|string|max:30',
+    ];
+
+    /** Ambil hanya field identitas dari data tervalidasi. */
+    private function identityData(array $validated): array
+    {
+        return collect($validated)
+            ->only(array_keys(self::IDENTITY_RULES))
+            ->toArray();
+    }
+
+    /** Map satu ResidentIdCard untuk dikirim ke frontend (termasuk identitas). */
+    private function mapIdCard(ResidentIdCard $c): array
+    {
+        return [
+            'id' => $c->id,
+            'label' => $c->label,
+            'nama' => $c->nama,
+            'nomor_ktp' => $c->nomor_ktp,
+            'jenis_kelamin' => $c->jenis_kelamin,
+            'tempat_lahir' => $c->tempat_lahir,
+            'tanggal_lahir' => $c->tanggal_lahir?->format('Y-m-d'),
+            'status_perkawinan' => $c->status_perkawinan,
+            'agama' => $c->agama,
+            'pekerjaan' => $c->pekerjaan,
+            'golongan_darah' => $c->golongan_darah,
+            'kewarganegaraan' => $c->kewarganegaraan,
+            'file_path' => $c->file_path,
+            'file_url' => $c->file_path ? Storage::url($c->file_path) : null,
+        ];
+    }
+
     public function show()
     {
         $user = auth()->user();
@@ -35,13 +79,7 @@ class ResidentProfileController extends Controller
                 'nomor_kk' => $profile->nomor_kk,
                 'kk_path' => $profile->kk_path,
                 'kk_url' => $profile->kk_path ? Storage::url($profile->kk_path) : null,
-                'id_cards' => $profile->idCards->map(fn ($c) => [
-                    'id' => $c->id,
-                    'label' => $c->label,
-                    'nomor_ktp' => $c->nomor_ktp,
-                    'file_path' => $c->file_path,
-                    'file_url' => Storage::url($c->file_path),
-                ]),
+                'id_cards' => $profile->idCards->map(fn ($c) => $this->mapIdCard($c)),
             ],
             'readonly_info' => [
                 'name' => $user->name,
@@ -125,24 +163,40 @@ class ResidentProfileController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate([
-            'label' => 'nullable|string|max:100',
-            'nomor_ktp' => 'nullable|string|max:32',
-            'ktp_file' => self::FILE_RULES,
-        ]);
+        $validated = $request->validate(array_merge(self::IDENTITY_RULES, [
+            'ktp_file' => 'nullable|' . self::FILE_RULES,
+        ]));
 
         $profile = ResidentProfile::firstOrCreate(['user_id' => $user->id]);
 
-        $path = $request->file('ktp_file')->store("profiles/{$user->id}", 'public');
+        $path = $request->hasFile('ktp_file')
+            ? $request->file('ktp_file')->store("profiles/{$user->id}", 'public')
+            : null;
 
-        ResidentIdCard::create([
+        ResidentIdCard::create(array_merge($this->identityData($validated), [
             'resident_profile_id' => $profile->id,
-            'label' => $validated['label'] ?? null,
-            'nomor_ktp' => $validated['nomor_ktp'] ?? null,
             'file_path' => $path,
-        ]);
+        ]));
 
-        return back()->with('success', 'KTP berhasil diunggah.');
+        return back()->with('success', 'Data anggota keluarga berhasil disimpan.');
+    }
+
+    public function updateKtp(Request $request, ResidentIdCard $idCard)
+    {
+        $user = auth()->user();
+
+        if (in_array($user->role, ['admin', 'demo', 'ketua'])) {
+            abort(403);
+        }
+
+        if ($idCard->profile->user_id !== $user->id) {
+            abort(403);
+        }
+
+        $validated = $request->validate(self::IDENTITY_RULES);
+        $idCard->update($this->identityData($validated));
+
+        return back()->with('success', 'Data anggota keluarga diperbarui.');
     }
 
     public function deleteKtp(ResidentIdCard $idCard)
@@ -234,23 +288,35 @@ class ResidentProfileController extends Controller
     {
         [$user, $slot] = $this->resolveSlotUser($request, $house);
 
-        $validated = $request->validate([
-            'label' => 'nullable|string|max:100',
-            'nomor_ktp' => 'nullable|string|max:32',
-            'ktp_file' => self::FILE_RULES,
-        ]);
+        $validated = $request->validate(array_merge(self::IDENTITY_RULES, [
+            'ktp_file' => 'nullable|' . self::FILE_RULES,
+        ]));
 
         $profile = ResidentProfile::firstOrCreate(['user_id' => $user->id]);
-        $path = $request->file('ktp_file')->store("profiles/{$user->id}", 'public');
+        $path = $request->hasFile('ktp_file')
+            ? $request->file('ktp_file')->store("profiles/{$user->id}", 'public')
+            : null;
 
-        ResidentIdCard::create([
+        ResidentIdCard::create(array_merge($this->identityData($validated), [
             'resident_profile_id' => $profile->id,
-            'label' => $validated['label'] ?? null,
-            'nomor_ktp' => $validated['nomor_ktp'] ?? null,
             'file_path' => $path,
-        ]);
+        ]));
 
-        return back()->with('success', 'KTP berhasil diunggah.');
+        return back()->with('success', 'Data anggota keluarga berhasil disimpan.');
+    }
+
+    public function adminUpdateKtp(Request $request, House $house, ResidentIdCard $idCard)
+    {
+        [$user, $slot] = $this->resolveSlotUser($request, $house);
+
+        if ($idCard->profile->user_id !== $user->id) {
+            abort(403, 'KTP tidak terkait dengan slot ini.');
+        }
+
+        $validated = $request->validate(self::IDENTITY_RULES);
+        $idCard->update($this->identityData($validated));
+
+        return back()->with('success', 'Data anggota keluarga diperbarui.');
     }
 
     public function adminDeleteKtp(Request $request, House $house, ResidentIdCard $idCard)
@@ -307,13 +373,7 @@ class ResidentProfileController extends Controller
                 'nomor_kk' => $profile->nomor_kk,
                 'kk_path' => $profile->kk_path,
                 'kk_url' => $profile->kk_path ? Storage::url($profile->kk_path) : null,
-                'id_cards' => $profile->idCards->map(fn ($c) => [
-                    'id' => $c->id,
-                    'label' => $c->label,
-                    'nomor_ktp' => $c->nomor_ktp,
-                    'file_path' => $c->file_path,
-                    'file_url' => Storage::url($c->file_path),
-                ]),
+                'id_cards' => $profile->idCards->map(fn ($c) => $this->mapIdCard($c)),
             ],
         ]);
     }

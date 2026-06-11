@@ -32,6 +32,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/profil/kk', [\App\Http\Controllers\ResidentProfileController::class, 'uploadKk'])->name('profil.kk.upload');
     Route::delete('/profil/kk', [\App\Http\Controllers\ResidentProfileController::class, 'deleteKk'])->name('profil.kk.delete');
     Route::post('/profil/ktp', [\App\Http\Controllers\ResidentProfileController::class, 'uploadKtp'])->name('profil.ktp.upload');
+    Route::put('/profil/ktp/{idCard}', [\App\Http\Controllers\ResidentProfileController::class, 'updateKtp'])->name('profil.ktp.update');
     Route::delete('/profil/ktp/{idCard}', [\App\Http\Controllers\ResidentProfileController::class, 'deleteKtp'])->name('profil.ktp.delete');
 });
 
@@ -76,6 +77,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/admin/warga/{house}/profil/kk', [\App\Http\Controllers\ResidentProfileController::class, 'adminUploadKk'])->name('admin.warga.profil.kk.upload');
     Route::delete('/admin/warga/{house}/profil/kk', [\App\Http\Controllers\ResidentProfileController::class, 'adminDeleteKk'])->name('admin.warga.profil.kk.delete');
     Route::post('/admin/warga/{house}/profil/ktp', [\App\Http\Controllers\ResidentProfileController::class, 'adminUploadKtp'])->name('admin.warga.profil.ktp.upload');
+    Route::put('/admin/warga/{house}/profil/ktp/{idCard}', [\App\Http\Controllers\ResidentProfileController::class, 'adminUpdateKtp'])->name('admin.warga.profil.ktp.update');
     Route::delete('/admin/warga/{house}/profil/ktp/{idCard}', [\App\Http\Controllers\ResidentProfileController::class, 'adminDeleteKtp'])->name('admin.warga.profil.ktp.delete');
 
     // Expense Routes
@@ -90,6 +92,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/admin/report/initial-balance', [\App\Http\Controllers\FinancialReportController::class, 'updateInitialBalance'])->name('admin.report.initial-balance');
     Route::delete('/admin/report/initial-balance', [\App\Http\Controllers\FinancialReportController::class, 'deleteInitialBalance'])->name('admin.report.delete-initial-balance');
     Route::get('/admin/report/export-pdf', [\App\Http\Controllers\FinancialReportController::class, 'exportPdf'])->name('admin.report.export-pdf');
+});
+
+// Surat Pengantar (ketua, admin, demo)
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/ketua/surat-pengantar', [\App\Http\Controllers\SuratPengantarController::class, 'index'])->name('ketua.surat-pengantar.index');
+    Route::post('/ketua/surat-pengantar/generate', [\App\Http\Controllers\SuratPengantarController::class, 'generate'])->name('ketua.surat-pengantar.generate');
 });
 
 Route::middleware('auth')->group(function () {

@@ -7,7 +7,19 @@ import { Input } from '@/Components/ui/input';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Label } from '@/Components/ui/label';
-import { ArrowLeft, FileText, IdCard, Home, User, Mail, Phone, Users, Paperclip, Trash2, Upload } from 'lucide-vue-next';
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
+} from '@/Components/ui/dialog';
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from '@/Components/ui/select';
+import { ArrowLeft, FileText, IdCard, Home, User, Mail, Phone, Users, Paperclip, Trash2, Upload, Pencil } from 'lucide-vue-next';
+
+// Opsi dropdown identitas (dipakai form tambah & edit)
+const GENDER_OPTS = ['Laki-laki', 'Perempuan'];
+const STATUS_OPTS = ['Belum Kawin', 'Kawin', 'Cerai Hidup', 'Cerai Mati'];
+const AGAMA_OPTS = ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu'];
+const GOLDAR_OPTS = ['A', 'B', 'AB', 'O'];
 
 const props = defineProps({
     house: Object,
@@ -24,7 +36,14 @@ const form = useForm({
 });
 
 const kkForm = useForm({ kk_file: null });
-const ktpForm = useForm({ label: '', nomor_ktp: '', ktp_file: null });
+
+// Form tambah anggota keluarga (identitas + scan KTP opsional)
+const emptyIdentity = () => ({
+    label: '', nama: '', nomor_ktp: '', jenis_kelamin: '', tempat_lahir: '',
+    tanggal_lahir: '', status_perkawinan: '', agama: '', pekerjaan: '',
+    golongan_darah: '', kewarganegaraan: 'WNI', ktp_file: null,
+});
+const ktpForm = useForm(emptyIdentity());
 
 const kkInputRef = ref(null);
 const ktpInputRef = ref(null);
@@ -76,8 +95,8 @@ const onKtpChange = (e) => {
 };
 
 const submitKtp = () => {
-    if (!ktpForm.ktp_file) {
-        alert('Pilih file KTP terlebih dahulu.');
+    if (!ktpForm.nama && !ktpForm.label && !ktpForm.ktp_file) {
+        alert('Isi minimal Nama, atau pilih file KTP.');
         return;
     }
     ktpForm.transform((d) => ({ ...d, slot: props.slot }))
@@ -86,8 +105,38 @@ const submitKtp = () => {
             preserveScroll: true,
             onSuccess: () => {
                 ktpForm.reset();
+                ktpForm.kewarganegaraan = 'WNI';
                 if (ktpInputRef.value) ktpInputRef.value.value = '';
             },
+        });
+};
+
+// ── Edit identitas anggota (tanpa ganti file) ────────────────
+const isEditOpen = ref(false);
+const editForm = useForm({ id: null, ...emptyIdentity() });
+delete editForm.ktp_file; // edit tidak menyentuh file
+
+const openEdit = (card) => {
+    editForm.id = card.id;
+    editForm.label = card.label ?? '';
+    editForm.nama = card.nama ?? '';
+    editForm.nomor_ktp = card.nomor_ktp ?? '';
+    editForm.jenis_kelamin = card.jenis_kelamin ?? '';
+    editForm.tempat_lahir = card.tempat_lahir ?? '';
+    editForm.tanggal_lahir = card.tanggal_lahir ?? '';
+    editForm.status_perkawinan = card.status_perkawinan ?? '';
+    editForm.agama = card.agama ?? '';
+    editForm.pekerjaan = card.pekerjaan ?? '';
+    editForm.golongan_darah = card.golongan_darah ?? '';
+    editForm.kewarganegaraan = card.kewarganegaraan ?? 'WNI';
+    isEditOpen.value = true;
+};
+
+const submitEdit = () => {
+    editForm.transform((d) => ({ ...d, slot: props.slot }))
+        .put(route('admin.warga.profil.ktp.update', { house: props.house.id, idCard: editForm.id }), {
+            preserveScroll: true,
+            onSuccess: () => { isEditOpen.value = false; },
         });
 };
 
@@ -300,32 +349,74 @@ const fileExt = (path) => (path?.split('.').pop() || '').toUpperCase();
                 </CardHeader>
                 <CardContent class="space-y-4">
                     <div class="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-3">
+                        <p class="text-sm font-medium text-slate-700">Tambah Anggota Keluarga</p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
-                                <Label for="ktp_label">Label (opsional)</Label>
-                                <Input
-                                    id="ktp_label"
-                                    v-model="ktpForm.label"
-                                    placeholder="mis. Kepala Keluarga, Istri, Anak 1"
-                                    class="mt-1"
-                                />
+                                <Label>Nama Lengkap</Label>
+                                <Input v-model="ktpForm.nama" placeholder="Nama sesuai KTP" class="mt-1" />
                             </div>
                             <div>
-                                <Label for="ktp_nomor">Nomor KTP (opsional)</Label>
-                                <Input
-                                    id="ktp_nomor"
-                                    v-model="ktpForm.nomor_ktp"
-                                    type="text"
-                                    inputmode="numeric"
-                                    maxlength="32"
-                                    placeholder="16 digit nomor KTP"
-                                    class="mt-1"
-                                />
+                                <Label>Label (hubungan)</Label>
+                                <Input v-model="ktpForm.label" placeholder="mis. Kepala Keluarga, Istri, Anak 1" class="mt-1" />
                             </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
                             <div>
-                                <Label for="ktp_file">File KTP <span class="text-red-500">*</span></Label>
+                                <Label>NIK</Label>
+                                <Input v-model="ktpForm.nomor_ktp" inputmode="numeric" maxlength="32" placeholder="16 digit NIK" class="mt-1" />
+                            </div>
+                            <div>
+                                <Label>Jenis Kelamin</Label>
+                                <Select v-model="ktpForm.jenis_kelamin">
+                                    <SelectTrigger class="mt-1"><SelectValue placeholder="Pilih..." /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="o in GENDER_OPTS" :key="o" :value="o">{{ o }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Label>Tempat Lahir</Label>
+                                <Input v-model="ktpForm.tempat_lahir" placeholder="Kota lahir" class="mt-1" />
+                            </div>
+                            <div>
+                                <Label>Tanggal Lahir</Label>
+                                <Input type="date" v-model="ktpForm.tanggal_lahir" class="mt-1" />
+                            </div>
+                            <div>
+                                <Label>Status Perkawinan</Label>
+                                <Select v-model="ktpForm.status_perkawinan">
+                                    <SelectTrigger class="mt-1"><SelectValue placeholder="Pilih..." /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="o in STATUS_OPTS" :key="o" :value="o">{{ o }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Label>Agama</Label>
+                                <Select v-model="ktpForm.agama">
+                                    <SelectTrigger class="mt-1"><SelectValue placeholder="Pilih..." /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="o in AGAMA_OPTS" :key="o" :value="o">{{ o }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Label>Pekerjaan</Label>
+                                <Input v-model="ktpForm.pekerjaan" placeholder="mis. Karyawan Swasta" class="mt-1" />
+                            </div>
+                            <div>
+                                <Label>Golongan Darah</Label>
+                                <Select v-model="ktpForm.golongan_darah">
+                                    <SelectTrigger class="mt-1"><SelectValue placeholder="Pilih..." /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="o in GOLDAR_OPTS" :key="o" :value="o">{{ o }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Label>Kewarganegaraan</Label>
+                                <Input v-model="ktpForm.kewarganegaraan" class="mt-1" />
+                            </div>
+                            <div>
+                                <Label>File KTP <span class="text-xs text-muted-foreground font-normal">(opsional)</span></Label>
                                 <input
                                     id="ktp_file"
                                     ref="ktpInputRef"
@@ -335,43 +426,133 @@ const fileExt = (path) => (path?.split('.').pop() || '').toUpperCase();
                                     @change="onKtpChange"
                                 />
                             </div>
+                        </div>
+                        <div class="flex justify-end">
                             <Button type="button" @click="submitKtp" :disabled="ktpForm.processing">
-                                <Upload class="w-4 h-4 mr-1.5" /> Upload
+                                <Upload class="w-4 h-4 mr-1.5" /> Simpan Anggota
                             </Button>
                         </div>
                     </div>
                     <p v-if="ktpForm.errors.ktp_file" class="text-xs text-red-600">{{ ktpForm.errors.ktp_file }}</p>
-                    <p v-if="ktpForm.errors.label" class="text-xs text-red-600">{{ ktpForm.errors.label }}</p>
-                    <p v-if="ktpForm.errors.nomor_ktp" class="text-xs text-red-600">{{ ktpForm.errors.nomor_ktp }}</p>
 
                     <div v-if="profile.id_cards.length > 0" class="space-y-2">
                         <div
                             v-for="card in profile.id_cards"
                             :key="card.id"
-                            class="flex items-center justify-between p-3 rounded-md bg-white border border-slate-200"
+                            class="flex items-start justify-between p-3 rounded-md bg-white border border-slate-200"
                         >
-                            <div class="flex items-center gap-3 min-w-0">
-                                <IdCard class="w-5 h-5 text-amber-600 shrink-0" />
+                            <div class="flex items-start gap-3 min-w-0">
+                                <IdCard class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                                 <div class="min-w-0">
                                     <p class="text-sm font-medium text-slate-900 truncate">
-                                        {{ card.label || 'KTP tanpa label' }}
+                                        {{ card.nama || card.label || 'Tanpa nama' }}
+                                        <span v-if="card.label && card.nama" class="text-xs text-slate-400 font-normal">({{ card.label }})</span>
                                     </p>
                                     <p v-if="card.nomor_ktp" class="text-xs text-slate-500 font-mono">NIK: {{ card.nomor_ktp }}</p>
-                                    <a :href="card.file_url" target="_blank" class="text-xs text-amber-700 hover:underline">
-                                        Lihat / Download ({{ fileExt(card.file_path) }})
+                                    <p v-if="card.jenis_kelamin || card.tanggal_lahir" class="text-xs text-slate-500">
+                                        {{ [card.jenis_kelamin, card.tempat_lahir && card.tanggal_lahir ? (card.tempat_lahir + ', ' + card.tanggal_lahir) : (card.tanggal_lahir || card.tempat_lahir)].filter(Boolean).join(' • ') }}
+                                    </p>
+                                    <a v-if="card.file_url" :href="card.file_url" target="_blank" class="text-xs text-amber-700 hover:underline">
+                                        Lihat / Download KTP ({{ fileExt(card.file_path) }})
                                     </a>
+                                    <span v-else class="text-xs text-slate-400">Tanpa scan KTP</span>
                                 </div>
                             </div>
-                            <Button variant="ghost" size="sm" class="text-red-600 hover:bg-red-50" @click="deleteKtp(card.id)">
-                                <Trash2 class="w-4 h-4" />
-                            </Button>
+                            <div class="flex items-center gap-1 shrink-0">
+                                <Button variant="ghost" size="sm" class="text-slate-600 hover:bg-slate-100" @click="openEdit(card)">
+                                    <Pencil class="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" class="text-red-600 hover:bg-red-50" @click="deleteKtp(card.id)">
+                                    <Trash2 class="w-4 h-4" />
+                                </Button>
+                            </div>
                         </div>
                     </div>
                     <div v-else class="text-center py-6 text-sm text-muted-foreground border border-dashed border-slate-200 rounded-md">
-                        Belum ada KTP terunggah.
+                        Belum ada anggota keluarga.
                     </div>
                 </CardContent>
             </Card>
         </div>
+
+        <!-- ── Dialog Edit Identitas Anggota ── -->
+        <Dialog v-model:open="isEditOpen">
+            <DialogContent class="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Edit Data Anggota Keluarga</DialogTitle>
+                    <DialogDescription>Data ini dipakai untuk auto-fill Surat Pengantar.</DialogDescription>
+                </DialogHeader>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto px-1">
+                    <div>
+                        <Label>Nama Lengkap</Label>
+                        <Input v-model="editForm.nama" class="mt-1" />
+                    </div>
+                    <div>
+                        <Label>Label (hubungan)</Label>
+                        <Input v-model="editForm.label" class="mt-1" />
+                    </div>
+                    <div>
+                        <Label>NIK</Label>
+                        <Input v-model="editForm.nomor_ktp" inputmode="numeric" maxlength="32" class="mt-1" />
+                    </div>
+                    <div>
+                        <Label>Jenis Kelamin</Label>
+                        <Select v-model="editForm.jenis_kelamin">
+                            <SelectTrigger class="mt-1"><SelectValue placeholder="Pilih..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="o in GENDER_OPTS" :key="o" :value="o">{{ o }}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label>Tempat Lahir</Label>
+                        <Input v-model="editForm.tempat_lahir" class="mt-1" />
+                    </div>
+                    <div>
+                        <Label>Tanggal Lahir</Label>
+                        <Input type="date" v-model="editForm.tanggal_lahir" class="mt-1" />
+                    </div>
+                    <div>
+                        <Label>Status Perkawinan</Label>
+                        <Select v-model="editForm.status_perkawinan">
+                            <SelectTrigger class="mt-1"><SelectValue placeholder="Pilih..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="o in STATUS_OPTS" :key="o" :value="o">{{ o }}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label>Agama</Label>
+                        <Select v-model="editForm.agama">
+                            <SelectTrigger class="mt-1"><SelectValue placeholder="Pilih..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="o in AGAMA_OPTS" :key="o" :value="o">{{ o }}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label>Pekerjaan</Label>
+                        <Input v-model="editForm.pekerjaan" class="mt-1" />
+                    </div>
+                    <div>
+                        <Label>Golongan Darah</Label>
+                        <Select v-model="editForm.golongan_darah">
+                            <SelectTrigger class="mt-1"><SelectValue placeholder="Pilih..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="o in GOLDAR_OPTS" :key="o" :value="o">{{ o }}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label>Kewarganegaraan</Label>
+                        <Input v-model="editForm.kewarganegaraan" class="mt-1" />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" @click="isEditOpen = false">Batal</Button>
+                    <Button @click="submitEdit" :disabled="editForm.processing">Simpan</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </AuthenticatedLayout>
 </template>
