@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\House;
-use App\Models\ResidentIdCard;
-use App\Models\ResidentProfile;
+use App\Models\LetterNumber;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 
 class SuratPengantarController extends Controller
@@ -35,8 +35,15 @@ class SuratPengantarController extends Controller
                 'people' => $this->collectPeople($h),
             ]);
 
+        $tahun = (int) now()->year;
+        $bulan = (int) now()->month;
+        $nextUrut = LetterNumber::nextNomorUrut($tahun);
+
         return Inertia::render('Ketua/SuratPengantar', [
             'houses' => $houses,
+            'nextNumber' => [
+                'nomor_format' => LetterNumber::format($nextUrut, $bulan, $tahun),
+            ],
         ]);
     }
 
@@ -111,7 +118,6 @@ class SuratPengantarController extends Controller
 
         $validated = $request->validate([
             'house_id'           => 'required|exists:houses,id',
-            'person_id'          => 'nullable|string|max:20',
             'nama_lengkap'       => 'required|string|max:100',
             'jenis_kelamin'      => 'required|in:Laki-laki,Perempuan',
             'tempat_lahir'       => 'required|string|max:100',
@@ -138,21 +144,25 @@ class SuratPengantarController extends Controller
             'pengikut'           => 'nullable|array',
             'pengikut.*.nama'    => 'required_with:pengikut|string|max:100',
             'pengikut.*.hub_keluarga' => 'required_with:pengikut|string|max:50',
-            'nomor_surat'        => 'nullable|string|max:50',
             'tanggal_surat'      => 'required|date',
         ]);
 
         $house = House::findOrFail($validated['house_id']);
 
-        // Simpan-balik identitas ke data warga (anggota keluarga) bila ada orang terpilih
-        $this->syncPersonData($house, $validated);
+        // Catatan: Surat Pengantar sengaja TIDAK menulis ke data warga (read-only).
+        // Input/edit identitas warga dilakukan di Data Warga → Profil agar pembagian
+        // pemilik/penyewa jelas dan tidak ambigu.
 
-        $tanggalLahirFormatted = \Carbon\Carbon::parse($validated['tanggal_lahir'])->translatedFormat('d F Y');
-        $tanggalSuratFormatted = \Carbon\Carbon::parse($validated['tanggal_surat'])->translatedFormat('d F Y');
+        // Catat nomor surat ke Agenda Surat (reset tiap tahun) lalu pakai di PDF
+        $nomorSurat = $this->registerLetterNumber($validated);
+
+        $tanggalLahirFormatted = \Carbon\Carbon::parse($validated['tanggal_lahir'])->locale('id')->translatedFormat('d F Y');
+        $tanggalSuratFormatted = \Carbon\Carbon::parse($validated['tanggal_surat'])->locale('id')->translatedFormat('d F Y');
 
         $pdf = Pdf::loadView('reports.surat-pengantar', [
             'data'                => $validated,
             'house'               => $house,
+            'nomor_surat_text'    => $nomorSurat,
             'tanggal_lahir_fmt'   => $tanggalLahirFormatted,
             'tanggal_surat_fmt'   => $tanggalSuratFormatted,
             'ketua_name'          => $user->name,
@@ -164,79 +174,26 @@ class SuratPengantarController extends Controller
     }
 
     /**
-     * Simpan identitas dari form surat ke data warga (resident_id_cards),
-     * supaya pembuatan surat berikutnya otomatis terisi.
-     *
-     * person_id: "cNN" = update kartu yang ada, "uNN" = buat kartu baru utk akun.
+     * Catat nomor surat baru ke Agenda Surat berdasarkan tanggal surat,
+     * lalu kembalikan nomor terformat (001/RT.44/VI/2026).
      */
-    private function syncPersonData(House $house, array $data): void
+    private function registerLetterNumber(array $data): string
     {
-        $personId = $data['person_id'] ?? '';
-        if (!$personId) {
-            return;
-        }
+        $tanggal = Carbon::parse($data['tanggal_surat']);
+        $tahun = (int) $tanggal->year;
+        $bulan = (int) $tanggal->month;
+        $nomorUrut = LetterNumber::nextNomorUrut($tahun);
 
-        $identity = [
-            'nama'              => $data['nama_lengkap'],
-            'nomor_ktp'         => $data['nik'],
-            'jenis_kelamin'     => $data['jenis_kelamin'],
-            'tempat_lahir'      => $data['tempat_lahir'],
-            'tanggal_lahir'     => $data['tanggal_lahir'],
-            'status_perkawinan' => $data['status_perkawinan'],
-            'agama'             => $data['agama'],
-            'pekerjaan'         => $data['pekerjaan'],
-            'golongan_darah'    => $data['golongan_darah'] ?? null,
-            'kewarganegaraan'   => $data['kewarganegaraan'],
-        ];
+        LetterNumber::create([
+            'nomor_urut' => $nomorUrut,
+            'tahun'      => $tahun,
+            'bulan'      => $bulan,
+            'jenis'      => 'Surat Pengantar',
+            'keterangan' => 'Surat Pengantar a.n. ' . $data['nama_lengkap'],
+            'tanggal'    => $tanggal->toDateString(),
+            'created_by' => auth()->id(),
+        ]);
 
-        $prefix = substr($personId, 0, 1);
-        $id = (int) substr($personId, 1);
-
-        if ($prefix === 'c') {
-            // Update kartu yang ada — pastikan kartu memang milik pemilik/penyewa rumah ini
-            $card = ResidentIdCard::find($id);
-            if ($card && $this->cardBelongsToHouse($card, $house)) {
-                $card->update($identity);
-                $this->syncNomorKk($card->resident_profile_id, $data['nomor_kk'] ?? null);
-            }
-            return;
-        }
-
-        if ($prefix === 'u') {
-            // Buat kartu baru untuk akun pemilik/penyewa rumah ini
-            $targetUser = collect([$house->owner, $house->tenant])
-                ->filter()
-                ->firstWhere('id', $id);
-            if (!$targetUser) {
-                return;
-            }
-            $profile = ResidentProfile::firstOrCreate(['user_id' => $targetUser->id]);
-            ResidentIdCard::create(array_merge($identity, [
-                'resident_profile_id' => $profile->id,
-                'file_path' => null,
-            ]));
-            $this->syncNomorKk($profile->id, $data['nomor_kk'] ?? null);
-        }
-    }
-
-    /** Pastikan kartu terkait pemilik/penyewa rumah ini (cegah update lintas rumah). */
-    private function cardBelongsToHouse(ResidentIdCard $card, House $house): bool
-    {
-        $ownerProfileId = $house->owner?->residentProfile?->id;
-        $tenantProfileId = $house->tenant?->residentProfile?->id;
-
-        return in_array($card->resident_profile_id, array_filter([$ownerProfileId, $tenantProfileId]), true);
-    }
-
-    /** Simpan nomor KK ke profil bila diisi dan profil belum punya. */
-    private function syncNomorKk(int $profileId, ?string $nomorKk): void
-    {
-        if (!$nomorKk) {
-            return;
-        }
-        $profile = ResidentProfile::find($profileId);
-        if ($profile && !$profile->nomor_kk) {
-            $profile->update(['nomor_kk' => $nomorKk]);
-        }
+        return LetterNumber::format($nomorUrut, $bulan, $tahun);
     }
 }

@@ -226,6 +226,10 @@
             text-align: right;
             margin-top: 8px;
         }
+        .sign-box {
+            display: inline-block;
+            text-align: center;
+        }
         .sign-gap {
             margin-top: 70px;
         }
@@ -278,12 +282,7 @@
     <div class="surat-title">
         <div class="title">Surat Pengantar</div>
         <div class="nomor">
-            Nomor :
-            @if(!empty($data['nomor_surat']))
-                {{ $data['nomor_surat'] }}
-            @else
-                ........./RT.44/........./{{ \Carbon\Carbon::parse($data['tanggal_surat'])->format('Y') }}
-            @endif
+            Nomor : {{ $nomor_surat_text ?? '........./RT.44/........./' . \Carbon\Carbon::parse($data['tanggal_surat'])->format('Y') }}
         </div>
     </div>
 
@@ -470,9 +469,11 @@
             Demikian Surat Pengantar ini diberikan kepada yang bersangkutan untuk dipergunakan sebagaimana mestinya.
         </div>
         <div class="footer-sign">
-            <div>Ketua RT. 44</div>
-            <div class="sign-gap"></div>
-            <div class="sign-name">AIDIL SAPUTRA KIRSAN</div>
+            <div class="sign-box">
+                <div>Ketua RT. 44</div>
+                <div class="sign-gap"></div>
+                <div class="sign-name">AIDIL SAPUTRA KIRSAN</div>
+            </div>
         </div>
     </div>
 

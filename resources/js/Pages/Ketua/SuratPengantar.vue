@@ -13,6 +13,7 @@ import axios from 'axios';
 
 const props = defineProps({
     houses: Array,
+    nextNumber: { type: Object, default: () => ({ nomor_format: '' }) },
 });
 
 // ── House & Person Selection ─────────────────────────────────
@@ -28,7 +29,6 @@ const people = computed(() => selectedHouse.value?.people ?? []);
 // ── Form ─────────────────────────────────────────────────────
 const form = useForm({
     house_id:          '',
-    person_id:         '', // id orang terpilih (cNN = kartu, uNN = akun) utk simpan-balik
     nama_lengkap:      '',
     jenis_kelamin:     '',
     tempat_lahir:      '',
@@ -53,7 +53,6 @@ const form = useForm({
     provinsi_dituju:   '',
     jumlah_pengikut:   0,
     pengikut:          [],
-    nomor_surat:       '',
     tanggal_surat:     new Date().toISOString().slice(0, 10),
 });
 
@@ -68,7 +67,6 @@ watch(selectedHouseId, () => {
 
 // Saat pilih orang: auto-fill semua field identitas dari data tersimpan
 watch(selectedPersonId, () => {
-    form.person_id = selectedPersonId.value;
     const p = people.value.find(x => String(x.id) === selectedPersonId.value);
     if (!p) return;
 
@@ -280,8 +278,11 @@ const errorList = computed(() => {
                 <h3 class="font-semibold text-slate-700">Nomor & Tanggal Surat</h3>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-1.5">
-                        <Label>Nomor Surat <span class="text-slate-400 text-xs">(opsional)</span></Label>
-                        <Input v-model="form.nomor_surat" placeholder="Contoh: 001/RT.44/I/2025" />
+                        <Label>Nomor Surat <span class="text-slate-400 text-xs">(otomatis)</span></Label>
+                        <div class="px-3 py-2 rounded-md bg-slate-50 border border-slate-200 text-sm font-mono text-slate-700">
+                            {{ nextNumber.nomor_format || '—' }}
+                        </div>
+                        <p class="text-xs text-slate-400">Tercatat otomatis ke Agenda Surat saat PDF dibuat.</p>
                     </div>
                     <div class="space-y-1.5">
                         <Label>Tanggal Surat <span class="text-red-500">*</span></Label>

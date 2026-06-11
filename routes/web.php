@@ -98,6 +98,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/ketua/surat-pengantar', [\App\Http\Controllers\SuratPengantarController::class, 'index'])->name('ketua.surat-pengantar.index');
     Route::post('/ketua/surat-pengantar/generate', [\App\Http\Controllers\SuratPengantarController::class, 'generate'])->name('ketua.surat-pengantar.generate');
+
+    // Agenda Surat (buku nomor surat keluar)
+    Route::get('/ketua/agenda-surat', [\App\Http\Controllers\LetterNumberController::class, 'index'])->name('ketua.agenda-surat.index');
+    Route::post('/ketua/agenda-surat', [\App\Http\Controllers\LetterNumberController::class, 'store'])->name('ketua.agenda-surat.store');
+    Route::put('/ketua/agenda-surat/{letterNumber}', [\App\Http\Controllers\LetterNumberController::class, 'update'])->name('ketua.agenda-surat.update');
+    Route::delete('/ketua/agenda-surat/{letterNumber}', [\App\Http\Controllers\LetterNumberController::class, 'destroy'])->name('ketua.agenda-surat.destroy');
 });
 
 Route::middleware('auth')->group(function () {
