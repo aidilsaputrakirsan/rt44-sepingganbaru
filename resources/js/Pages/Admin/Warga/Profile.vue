@@ -111,10 +111,12 @@ const submitKtp = () => {
         });
 };
 
-// ── Edit identitas anggota (tanpa ganti file) ────────────────
+// ── Edit identitas anggota (boleh sekalian ganti file KTP) ────
 const isEditOpen = ref(false);
+const editKtpInputRef = ref(null);
+const editCurrentFileUrl = ref(null);
+const editCurrentFilePath = ref(null);
 const editForm = useForm({ id: null, ...emptyIdentity() });
-delete editForm.ktp_file; // edit tidak menyentuh file
 
 const openEdit = (card) => {
     editForm.id = card.id;
@@ -129,12 +131,29 @@ const openEdit = (card) => {
     editForm.pekerjaan = card.pekerjaan ?? '';
     editForm.golongan_darah = card.golongan_darah ?? '';
     editForm.kewarganegaraan = card.kewarganegaraan ?? 'WNI';
+    editForm.ktp_file = null;
+    editCurrentFileUrl.value = card.file_url ?? null;
+    editCurrentFilePath.value = card.file_path ?? null;
+    if (editKtpInputRef.value) editKtpInputRef.value.value = '';
     isEditOpen.value = true;
 };
 
+const onEditKtpChange = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) {
+        alert('Ukuran file maksimal 5MB.');
+        e.target.value = '';
+        return;
+    }
+    editForm.ktp_file = f;
+};
+
 const submitEdit = () => {
-    editForm.transform((d) => ({ ...d, slot: props.slot }))
-        .put(route('admin.warga.profil.ktp.update', { house: props.house.id, idCard: editForm.id }), {
+    // _method=put + forceFormData supaya file ikut terkirim lewat route PUT
+    editForm.transform((d) => ({ ...d, slot: props.slot, _method: 'put' }))
+        .post(route('admin.warga.profil.ktp.update', { house: props.house.id, idCard: editForm.id }), {
+            forceFormData: true,
             preserveScroll: true,
             onSuccess: () => { isEditOpen.value = false; },
         });
@@ -546,6 +565,24 @@ const fileExt = (path) => (path?.split('.').pop() || '').toUpperCase();
                     <div>
                         <Label>Kewarganegaraan</Label>
                         <Input v-model="editForm.kewarganegaraan" class="mt-1" />
+                    </div>
+                    <div class="md:col-span-2">
+                        <Label>Ganti File KTP <span class="text-xs text-muted-foreground font-normal">(opsional)</span></Label>
+                        <div class="mt-1 flex items-center gap-3 text-xs">
+                            <a v-if="editCurrentFileUrl" :href="editCurrentFileUrl" target="_blank" class="text-amber-700 hover:underline">
+                                File saat ini ({{ fileExt(editCurrentFilePath) }})
+                            </a>
+                            <span v-else class="text-slate-400">Belum ada file</span>
+                        </div>
+                        <input
+                            ref="editKtpInputRef"
+                            type="file"
+                            accept=".jpg,.jpeg,.png,.pdf"
+                            class="mt-1 block w-full text-sm text-slate-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 file:cursor-pointer"
+                            @change="onEditKtpChange"
+                        />
+                        <p class="text-xs text-muted-foreground mt-1">Pilih file untuk mengganti. Kosongkan jika tidak ingin mengubah file.</p>
+                        <p v-if="editForm.errors.ktp_file" class="text-xs text-red-600 mt-1">{{ editForm.errors.ktp_file }}</p>
                     </div>
                 </div>
                 <DialogFooter>

@@ -29,6 +29,15 @@ class ResidentProfileController extends Controller
         'kewarganegaraan'   => 'nullable|string|max:30',
     ];
 
+    /** Ganti file KTP: hapus file lama (bila ada) lalu simpan yang baru. */
+    private function replaceKtpFile(Request $request, ResidentIdCard $idCard, int $userId): string
+    {
+        if ($idCard->file_path && Storage::disk('public')->exists($idCard->file_path)) {
+            Storage::disk('public')->delete($idCard->file_path);
+        }
+        return $request->file('ktp_file')->store("profiles/{$userId}", 'public');
+    }
+
     /** Ambil hanya field identitas dari data tervalidasi. */
     private function identityData(array $validated): array
     {
@@ -193,8 +202,15 @@ class ResidentProfileController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate(self::IDENTITY_RULES);
-        $idCard->update($this->identityData($validated));
+        $validated = $request->validate(array_merge(self::IDENTITY_RULES, [
+            'ktp_file' => 'nullable|' . self::FILE_RULES,
+        ]));
+
+        $data = $this->identityData($validated);
+        if ($request->hasFile('ktp_file')) {
+            $data['file_path'] = $this->replaceKtpFile($request, $idCard, $user->id);
+        }
+        $idCard->update($data);
 
         return back()->with('success', 'Data anggota keluarga diperbarui.');
     }
@@ -313,8 +329,15 @@ class ResidentProfileController extends Controller
             abort(403, 'KTP tidak terkait dengan slot ini.');
         }
 
-        $validated = $request->validate(self::IDENTITY_RULES);
-        $idCard->update($this->identityData($validated));
+        $validated = $request->validate(array_merge(self::IDENTITY_RULES, [
+            'ktp_file' => 'nullable|' . self::FILE_RULES,
+        ]));
+
+        $data = $this->identityData($validated);
+        if ($request->hasFile('ktp_file')) {
+            $data['file_path'] = $this->replaceKtpFile($request, $idCard, $user->id);
+        }
+        $idCard->update($data);
 
         return back()->with('success', 'Data anggota keluarga diperbarui.');
     }
