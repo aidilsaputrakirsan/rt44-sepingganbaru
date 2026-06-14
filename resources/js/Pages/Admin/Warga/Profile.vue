@@ -41,7 +41,7 @@ const kkForm = useForm({ kk_file: null });
 const emptyIdentity = () => ({
     label: '', nama: '', nomor_ktp: '', jenis_kelamin: '', tempat_lahir: '',
     tanggal_lahir: '', status_perkawinan: '', agama: '', pekerjaan: '',
-    golongan_darah: '', kewarganegaraan: 'WNI', ktp_file: null,
+    golongan_darah: '', kewarganegaraan: 'WNI', alamat: '', ktp_file: null,
 });
 const ktpForm = useForm(emptyIdentity());
 
@@ -131,6 +131,7 @@ const openEdit = (card) => {
     editForm.pekerjaan = card.pekerjaan ?? '';
     editForm.golongan_darah = card.golongan_darah ?? '';
     editForm.kewarganegaraan = card.kewarganegaraan ?? 'WNI';
+    editForm.alamat = card.alamat ?? '';
     editForm.ktp_file = null;
     editCurrentFileUrl.value = card.file_url ?? null;
     editCurrentFilePath.value = card.file_path ?? null;
@@ -434,6 +435,10 @@ const fileExt = (path) => (path?.split('.').pop() || '').toUpperCase();
                                 <Label>Kewarganegaraan</Label>
                                 <Input v-model="ktpForm.kewarganegaraan" class="mt-1" />
                             </div>
+                            <div class="md:col-span-2">
+                                <Label>Alamat sesuai KTP <span class="text-xs text-muted-foreground font-normal">(opsional, jika beda dgn rumah)</span></Label>
+                                <Input v-model="ktpForm.alamat" placeholder="Alamat lengkap sesuai KTP" class="mt-1" />
+                            </div>
                             <div>
                                 <Label>File KTP <span class="text-xs text-muted-foreground font-normal">(opsional)</span></Label>
                                 <input
@@ -565,6 +570,10 @@ const fileExt = (path) => (path?.split('.').pop() || '').toUpperCase();
                     <div>
                         <Label>Kewarganegaraan</Label>
                         <Input v-model="editForm.kewarganegaraan" class="mt-1" />
+                    </div>
+                    <div class="md:col-span-2">
+                        <Label>Alamat sesuai KTP <span class="text-xs text-muted-foreground font-normal">(opsional, jika beda dgn rumah)</span></Label>
+                        <Input v-model="editForm.alamat" placeholder="Alamat lengkap sesuai KTP" class="mt-1" />
                     </div>
                     <div class="md:col-span-2">
                         <Label>Ganti File KTP <span class="text-xs text-muted-foreground font-normal">(opsional)</span></Label>

@@ -80,6 +80,7 @@ class SuratPengantarController extends Controller
                     'pekerjaan'         => '',
                     'golongan_darah'    => '',
                     'kewarganegaraan'   => 'WNI',
+                    'alamat_ktp'        => '',
                 ];
                 continue;
             }
@@ -102,6 +103,7 @@ class SuratPengantarController extends Controller
                     'pekerjaan'         => $card->pekerjaan ?? '',
                     'golongan_darah'    => $card->golongan_darah ?? '',
                     'kewarganegaraan'   => $card->kewarganegaraan ?: 'WNI',
+                    'alamat_ktp'        => $card->alamat ?? '',
                 ];
             }
         }

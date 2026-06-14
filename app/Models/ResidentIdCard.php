@@ -19,6 +19,7 @@ class ResidentIdCard extends Model
         'pekerjaan',
         'golongan_darah',
         'kewarganegaraan',
+        'alamat',
         'file_path',
     ];
 

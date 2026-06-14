@@ -27,6 +27,7 @@ class ResidentProfileController extends Controller
         'pekerjaan'         => 'nullable|string|max:100',
         'golongan_darah'    => 'nullable|string|max:5',
         'kewarganegaraan'   => 'nullable|string|max:30',
+        'alamat'            => 'nullable|string|max:255',
     ];
 
     /** Ganti file KTP: hapus file lama (bila ada) lalu simpan yang baru. */
@@ -62,6 +63,7 @@ class ResidentProfileController extends Controller
             'pekerjaan' => $c->pekerjaan,
             'golongan_darah' => $c->golongan_darah,
             'kewarganegaraan' => $c->kewarganegaraan,
+            'alamat' => $c->alamat,
             'file_path' => $c->file_path,
             'file_url' => $c->file_path ? Storage::url($c->file_path) : null,
         ];

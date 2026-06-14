@@ -26,6 +26,28 @@ const selectedHouse = computed(() =>
 
 const people = computed(() => selectedHouse.value?.people ?? []);
 
+// Sumber alamat: 'rumah' (otomatis dari nomor rumah) | 'ktp' (alamat KTP tersimpan)
+const alamatMode = ref('rumah');
+
+const selectedPerson = computed(() =>
+    people.value.find(x => String(x.id) === selectedPersonId.value) ?? null
+);
+const alamatKtp = computed(() => selectedPerson.value?.alamat_ktp ?? '');
+
+// Isi field alamat sesuai mode terpilih (tetap bisa diedit manual setelahnya)
+const applyAlamat = () => {
+    if (alamatMode.value === 'ktp' && alamatKtp.value) {
+        form.alamat = alamatKtp.value;
+    } else {
+        form.alamat = selectedHouse.value?.alamat ?? '';
+    }
+};
+
+const setAlamatMode = (mode) => {
+    alamatMode.value = mode;
+    applyAlamat();
+};
+
 // ── Form ─────────────────────────────────────────────────────
 const form = useForm({
     house_id:          '',
@@ -60,9 +82,10 @@ const form = useForm({
 watch(selectedHouseId, () => {
     const h = selectedHouse.value;
     selectedPersonId.value = '';
+    alamatMode.value = 'rumah';
     if (!h) return;
     form.house_id = h.id;
-    form.alamat = h.alamat ?? '';
+    applyAlamat();
 });
 
 // Saat pilih orang: auto-fill semua field identitas dari data tersimpan
@@ -81,6 +104,10 @@ watch(selectedPersonId, () => {
     form.pekerjaan         = p.pekerjaan ?? '';
     form.golongan_darah    = p.golongan_darah ?? '';
     form.kewarganegaraan   = p.kewarganegaraan || 'WNI';
+
+    // Kalau orang ini punya alamat KTP, default pakai itu; jika tidak, sesuai rumah
+    alamatMode.value = p.alamat_ktp ? 'ktp' : 'rumah';
+    applyAlamat();
 });
 
 // ── Keperluan checkboxes ──────────────────────────────────────
@@ -397,7 +424,27 @@ const errorList = computed(() => {
 
                 <div class="space-y-1.5">
                     <Label>Alamat <span class="text-red-500">*</span></Label>
+                    <div class="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            @click="setAlamatMode('rumah')"
+                            class="text-xs px-3 py-1.5 rounded-md border transition-colors"
+                            :class="alamatMode === 'rumah' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'"
+                        >
+                            Sesuai rumah (otomatis)
+                        </button>
+                        <button
+                            type="button"
+                            @click="setAlamatMode('ktp')"
+                            :disabled="!alamatKtp"
+                            class="text-xs px-3 py-1.5 rounded-md border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            :class="alamatMode === 'ktp' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'"
+                        >
+                            Alamat KTP{{ alamatKtp ? '' : ' (kosong)' }}
+                        </button>
+                    </div>
                     <Input v-model="form.alamat" placeholder="Alamat lengkap" />
+                    <p class="text-xs text-slate-400">Bisa diedit manual sesuai kebutuhan.</p>
                     <p v-if="form.errors.alamat" class="text-xs text-red-500">{{ form.errors.alamat }}</p>
                 </div>
 
