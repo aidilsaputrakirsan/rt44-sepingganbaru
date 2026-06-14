@@ -73,11 +73,14 @@ class DemografiController extends Controller
                         continue;
                     }
 
-                    // Carbon 3 (Laravel 12) diffInYears() returns float → floor jadi umur penuh
-                    $age = (int) floor(abs(Carbon::parse($card->tanggal_lahir)->diffInYears($today)));
+                    // Hitung umur akurat: tahun + sisa bulan (bukan pembulatan).
+                    $birth = Carbon::parse($card->tanggal_lahir);
+                    $diff = $birth->diff($today);
+                    $umurTahun = $diff->y;
+                    $umurBulan = $diff->m;
                     $terdata++;
 
-                    $catKey = $this->kategoriUntukUmur($age);
+                    $catKey = $this->kategoriUntukUmur($umurTahun);
                     if (!$catKey) {
                         continue;
                     }
@@ -89,11 +92,13 @@ class DemografiController extends Controller
                     else $c['lainnya']++;
 
                     $c['people'][] = [
-                        'nama'  => $card->nama ?: ($card->label ?: '(tanpa nama)'),
-                        'umur'  => $age,
-                        'jk'    => $jk,
-                        'rumah' => $rumah,
-                        'slot'  => $slot,
+                        'nama'        => $card->nama ?: ($card->label ?: '(tanpa nama)'),
+                        'umur_tahun'  => $umurTahun,
+                        'umur_bulan'  => $umurBulan,
+                        'umur_total_bulan' => $umurTahun * 12 + $umurBulan, // untuk sort presisi
+                        'jk'          => $jk,
+                        'rumah'       => $rumah,
+                        'slot'        => $slot,
                     ];
                     unset($c);
                 }
@@ -104,7 +109,7 @@ class DemografiController extends Controller
         $kategori = [];
         foreach (self::KATEGORI as $k) {
             $c = $cats[$k['key']];
-            usort($c['people'], fn($a, $b) => $a['umur'] <=> $b['umur']);
+            usort($c['people'], fn($a, $b) => $a['umur_total_bulan'] <=> $b['umur_total_bulan']);
             $kategori[] = $c;
         }
 

@@ -5,7 +5,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
 } from '@/Components/ui/dialog';
-import { BarChart3, Users, UserCheck, UserX, Calendar, Info, ChevronRight } from 'lucide-vue-next';
+import { BarChart3, Users, UserCheck, UserX, Calendar, Info, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-vue-next';
 
 const props = defineProps({
     kategori: Array,
@@ -36,10 +36,48 @@ const pct = (n) => {
 // Drilldown daftar warga per kategori
 const isDetailOpen = ref(false);
 const detailCat = ref(null);
+const sortKey = ref('umur');   // 'umur' | 'rumah'
+const sortDir = ref('asc');    // 'asc' | 'desc'
+
 const openDetail = (cat) => {
     if (!cat.count) return;
     detailCat.value = cat;
+    sortKey.value = 'umur';
+    sortDir.value = 'asc';
     isDetailOpen.value = true;
+};
+
+const toggleSort = (key) => {
+    if (sortKey.value === key) {
+        sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortKey.value = key;
+        sortDir.value = 'asc';
+    }
+};
+
+const sortedPeople = computed(() => {
+    const people = [...(detailCat.value?.people || [])];
+    const dir = sortDir.value === 'asc' ? 1 : -1;
+    people.sort((a, b) => {
+        let cmp;
+        if (sortKey.value === 'rumah') {
+            // natural sort (G2/9 < G10/1), lalu umur sebagai tie-breaker
+            cmp = a.rumah.localeCompare(b.rumah, undefined, { numeric: true, sensitivity: 'base' });
+            if (cmp === 0) cmp = a.umur_total_bulan - b.umur_total_bulan;
+        } else {
+            cmp = a.umur_total_bulan - b.umur_total_bulan;
+            if (cmp === 0) cmp = a.rumah.localeCompare(b.rumah, undefined, { numeric: true });
+        }
+        return cmp * dir;
+    });
+    return people;
+});
+
+const fmtUmur = (p) => {
+    const th = p.umur_tahun, bl = p.umur_bulan;
+    if (th === 0) return `${bl} bln`;
+    return bl > 0 ? `${th} th ${bl} bln` : `${th} th`;
 };
 </script>
 
@@ -168,18 +206,29 @@ const openDetail = (cat) => {
                     </DialogTitle>
                     <DialogDescription>{{ detailCat?.desc }}</DialogDescription>
                 </DialogHeader>
+                <p class="text-[11px] text-slate-400 -mt-1">Klik judul kolom <strong>Umur</strong> atau <strong>Rumah</strong> untuk mengurutkan.</p>
                 <div class="overflow-y-auto -mx-2 px-2">
                     <table class="w-full text-sm">
-                        <thead class="text-[11px] uppercase tracking-wider text-slate-400 border-b">
+                        <thead class="text-[11px] uppercase tracking-wider text-slate-400 border-b sticky top-0 bg-white">
                             <tr>
                                 <th class="text-left py-2 font-semibold">Nama</th>
                                 <th class="text-center py-2 font-semibold">JK</th>
-                                <th class="text-center py-2 font-semibold">Umur</th>
-                                <th class="text-right py-2 font-semibold">Rumah</th>
+                                <th class="text-center py-2 font-semibold">
+                                    <button type="button" class="inline-flex items-center gap-1 hover:text-slate-700 uppercase tracking-wider" @click="toggleSort('umur')">
+                                        Umur
+                                        <component :is="sortKey === 'umur' ? (sortDir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown" class="w-3 h-3" :class="sortKey === 'umur' ? 'text-violet-600' : 'text-slate-300'" />
+                                    </button>
+                                </th>
+                                <th class="text-right py-2 font-semibold">
+                                    <button type="button" class="inline-flex items-center gap-1 hover:text-slate-700 uppercase tracking-wider ml-auto" @click="toggleSort('rumah')">
+                                        Rumah
+                                        <component :is="sortKey === 'rumah' ? (sortDir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown" class="w-3 h-3" :class="sortKey === 'rumah' ? 'text-violet-600' : 'text-slate-300'" />
+                                    </button>
+                                </th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
-                            <tr v-for="(p, i) in detailCat?.people" :key="i">
+                            <tr v-for="(p, i) in sortedPeople" :key="i" :class="sortKey === 'rumah' ? 'hover:bg-violet-50/40' : ''">
                                 <td class="py-2 text-slate-800">
                                     {{ p.nama }}
                                     <span class="text-[10px] text-slate-400">· {{ p.slot }}</span>
@@ -189,7 +238,7 @@ const openDetail = (cat) => {
                                         {{ p.jk || '?' }}
                                     </span>
                                 </td>
-                                <td class="py-2 text-center text-slate-600">{{ p.umur }} th</td>
+                                <td class="py-2 text-center text-slate-600 whitespace-nowrap">{{ fmtUmur(p) }}</td>
                                 <td class="py-2 text-right font-mono text-xs text-slate-500">{{ p.rumah }}</td>
                             </tr>
                         </tbody>
