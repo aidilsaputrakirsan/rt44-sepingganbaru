@@ -1,7 +1,7 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart, IdCard, Newspaper, FileText, BookText, BarChart3 } from 'lucide-vue-next';
+import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart, IdCard, Newspaper, FileText, BookText, BarChart3, ShieldCheck, KeyRound } from 'lucide-vue-next';
 
 const props = defineProps({
     mobile: {
@@ -15,8 +15,10 @@ const user = usePage().props.auth.user;
 const isAdmin = computed(() => user.role === 'admin' || user.role === 'demo');
 const isKetua = computed(() => user.role === 'ketua');
 const isDemo = computed(() => user.role === 'demo');
+const isSuperAdmin = computed(() => user.role === 'superadmin');
 
 const roleLabel = computed(() => {
+    if (user.role === 'superadmin') return 'Super Admin';
     if (user.role === 'admin') return 'Bendahara';
     if (user.role === 'ketua') return 'Ketua';
     if (user.role === 'demo') return 'Demo';
@@ -25,7 +27,13 @@ const roleLabel = computed(() => {
 
 // Menu dikelompokkan per section. `label: null` = grup tanpa judul (mis. Dashboard).
 const menuGroups = computed(() => {
-    if (isAdmin.value) {
+    if (isSuperAdmin.value) {
+        return [
+            { label: 'Sistem', items: [
+                { name: 'Kelola Akun', icon: KeyRound, route: 'superadmin.akun.index' },
+            ]},
+        ];
+    } else if (isAdmin.value) {
         return [
             { label: null, items: [
                 { name: 'Dashboard', icon: LayoutDashboard, route: 'admin.dashboard' },

@@ -94,6 +94,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/report/export-pdf', [\App\Http\Controllers\FinancialReportController::class, 'exportPdf'])->name('admin.report.export-pdf');
 });
 
+// Super Admin — kelola akun admin & ketua (khusus role superadmin)
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/superadmin/akun', [\App\Http\Controllers\SuperAdminController::class, 'index'])->name('superadmin.akun.index');
+    Route::put('/superadmin/akun/{user}/password', [\App\Http\Controllers\SuperAdminController::class, 'updatePassword'])->name('superadmin.akun.password');
+    Route::put('/superadmin/akun/{user}/profile', [\App\Http\Controllers\SuperAdminController::class, 'updateProfile'])->name('superadmin.akun.profile');
+});
+
 // Demografi / Statistik Kependudukan (khusus Ketua)
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/ketua/demografi', [\App\Http\Controllers\DemografiController::class, 'index'])->name('ketua.demografi.index');
