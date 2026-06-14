@@ -1,7 +1,7 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart, IdCard, Newspaper, FileText, BookText } from 'lucide-vue-next';
+import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart, IdCard, Newspaper, FileText, BookText, BarChart3 } from 'lucide-vue-next';
 
 const props = defineProps({
     mobile: {
@@ -23,32 +23,52 @@ const roleLabel = computed(() => {
     return null;
 });
 
-const menuItems = computed(() => {
+// Menu dikelompokkan per section. `label: null` = grup tanpa judul (mis. Dashboard).
+const menuGroups = computed(() => {
     if (isAdmin.value) {
         return [
-            { name: 'Dashboard', icon: LayoutDashboard, route: 'admin.dashboard' },
-            { name: 'Data Warga', icon: UserCircle, route: 'admin.warga.index' },
-            { name: 'Tagihan Per Rumah', icon: Receipt, route: 'admin.tagihan' },
-            { name: 'Kalender Iuran', icon: Calendar, route: 'admin.calendar' },
-            { name: 'Pengeluaran', icon: Receipt, route: 'admin.expenses.index' },
-            { name: 'Laporan Keuangan', icon: PieChart, route: 'admin.report.index' },
-            { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
+            { label: null, items: [
+                { name: 'Dashboard', icon: LayoutDashboard, route: 'admin.dashboard' },
+            ]},
+            { label: 'Kependudukan', items: [
+                { name: 'Data Warga', icon: UserCircle, route: 'admin.warga.index' },
+            ]},
+            { label: 'Keuangan', items: [
+                { name: 'Tagihan Per Rumah', icon: Receipt, route: 'admin.tagihan' },
+                { name: 'Kalender Iuran', icon: Calendar, route: 'admin.calendar' },
+                { name: 'Pengeluaran', icon: Receipt, route: 'admin.expenses.index' },
+                { name: 'Laporan Keuangan', icon: PieChart, route: 'admin.report.index' },
+            ]},
+            { label: 'Lainnya', items: [
+                { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
+            ]},
         ];
     } else if (isKetua.value) {
         return [
-            { name: 'Dashboard', icon: LayoutDashboard, route: 'admin.dashboard' },
-            { name: 'Data Warga', icon: UserCircle, route: 'admin.warga.index' },
-            { name: 'Surat Pengantar', icon: FileText, route: 'ketua.surat-pengantar.index' },
-            { name: 'Agenda Surat', icon: BookText, route: 'ketua.agenda-surat.index' },
-            { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
+            { label: null, items: [
+                { name: 'Dashboard', icon: LayoutDashboard, route: 'admin.dashboard' },
+            ]},
+            { label: 'Kependudukan', items: [
+                { name: 'Data Warga', icon: UserCircle, route: 'admin.warga.index' },
+                { name: 'Demografi', icon: BarChart3, route: 'ketua.demografi.index' },
+            ]},
+            { label: 'Surat Menyurat', items: [
+                { name: 'Surat Pengantar', icon: FileText, route: 'ketua.surat-pengantar.index' },
+                { name: 'Agenda Surat', icon: BookText, route: 'ketua.agenda-surat.index' },
+            ]},
+            { label: 'Lainnya', items: [
+                { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
+            ]},
         ];
     } else {
         return [
-            { name: 'Dashboard', icon: Home, route: 'dashboard' },
-            { name: 'Kalender Iuran', icon: Calendar, route: 'dashboard.calendar' },
-            { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
-            // Profil Warga di-hide dari sidebar warga — admin yang manage CRUD via Data Warga.
-            // Route tetap aktif (profil.show) untuk akses langsung jika dibutuhkan.
+            { label: null, items: [
+                { name: 'Dashboard', icon: Home, route: 'dashboard' },
+                { name: 'Kalender Iuran', icon: Calendar, route: 'dashboard.calendar' },
+                { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
+                // Profil Warga di-hide dari sidebar warga — admin yang manage CRUD via Data Warga.
+                // Route tetap aktif (profil.show) untuk akses langsung jika dibutuhkan.
+            ]},
         ];
     }
 });
@@ -71,19 +91,27 @@ const menuItems = computed(() => {
             </div>
         </div>
 
-        <nav class="flex-1 px-3 py-5 space-y-1">
-            <Link
-                v-for="item in menuItems"
-                :key="item.name"
-                :href="route(item.route)"
-                class="flex items-center px-3 py-2.5 text-sm rounded-lg transition-colors"
-                :class="route().current(item.route)
-                    ? 'bg-amber-500 text-white font-semibold shadow-md shadow-amber-500/20'
-                    : 'text-slate-300 hover:bg-white/5 hover:text-white'"
-            >
-                <component :is="item.icon" class="w-5 h-5 mr-3 shrink-0" />
-                {{ item.name }}
-            </Link>
+        <nav class="flex-1 px-3 py-5 space-y-4 overflow-y-auto">
+            <div v-for="(group, gi) in menuGroups" :key="gi" class="space-y-1">
+                <p
+                    v-if="group.label"
+                    class="px-3 pt-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500"
+                >
+                    {{ group.label }}
+                </p>
+                <Link
+                    v-for="item in group.items"
+                    :key="item.name"
+                    :href="route(item.route)"
+                    class="flex items-center px-3 py-2.5 text-sm rounded-lg transition-colors"
+                    :class="route().current(item.route)
+                        ? 'bg-amber-500 text-white font-semibold shadow-md shadow-amber-500/20'
+                        : 'text-slate-300 hover:bg-white/5 hover:text-white'"
+                >
+                    <component :is="item.icon" class="w-5 h-5 mr-3 shrink-0" />
+                    {{ item.name }}
+                </Link>
+            </div>
         </nav>
 
         <div class="p-3 border-t border-[hsl(var(--sidebar-border))]">

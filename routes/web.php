@@ -94,6 +94,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/report/export-pdf', [\App\Http\Controllers\FinancialReportController::class, 'exportPdf'])->name('admin.report.export-pdf');
 });
 
+// Demografi / Statistik Kependudukan (khusus Ketua)
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/ketua/demografi', [\App\Http\Controllers\DemografiController::class, 'index'])->name('ketua.demografi.index');
+});
+
 // Surat Pengantar (ketua, admin, demo)
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/ketua/surat-pengantar', [\App\Http\Controllers\SuratPengantarController::class, 'index'])->name('ketua.surat-pengantar.index');
