@@ -23,6 +23,12 @@
         .sheet {
             padding: 8mm 18mm 10mm 18mm;
         }
+        /* Halaman 2 (mulai dari Jumlah Pengikut): paksa pindah halaman & beri
+           margin atas normal — karena @page margin 0, padding-top jadi margin atasnya. */
+        .page-two {
+            page-break-before: always;
+            padding-top: 15mm;
+        }
 
         /* ── Header ── */
         .header {
@@ -231,7 +237,7 @@
             text-align: center;
         }
         .sign-gap {
-            margin-top: 70px;
+            margin-top: 100px;
         }
         .sign-name {
             font-weight: bold;
@@ -258,8 +264,8 @@
                 <div class="kecamatan">KECAMATAN BALIKPAPAN SELATAN</div>
                 <div class="kelurahan">KELURAHAN SEPINGGAN BARU</div>
                 <div class="rt-title">Rukun Tetangga 44</div>
-                <div class="alamat">JL. SYARIFOEDIN YOES, PERUMAHAN SEPINGGAN PRATAMA BLOK G DAN H</div>
-                <div class="alamat">HP. 085398952880</div>
+                <div class="alamat">JL. SEPINGGAN PRATAMA, PERUMAHAN PERMATA GADING BLOK G DAN H</div>
+                <div class="alamat">HP. 085752520095</div>
             </div>
             <div class="header-spacer"></div>
         </div>
@@ -403,11 +409,12 @@
         <table class="alamat-table">
             <tr>
                 <td class="a-label">Alamat yang dituju :</td>
-                <td class="a-value">{{ $data['alamat_dituju'] ?? '' }}</td>
-                <td class="a-label" style="padding-left: 10px;">No.</td>
-                <td class="a-value" style="width: 60px;">{{ $data['nomor_dituju'] ?? '' }}</td>
-                <td class="a-label" style="padding-left: 10px;">RT.</td>
-                <td class="a-value" style="width: 50px;">{{ $data['rt_dituju'] ?? '' }}</td>
+                <td class="a-value" style="width: 220px;">{{ $data['alamat_dituju'] ?? '' }}</td>
+                <td class="a-label" style="padding-left: 12px;">No.</td>
+                <td class="a-value" style="width: 45px;">{{ $data['nomor_dituju'] ?? '' }}</td>
+                <td class="a-label" style="padding-left: 12px;">RT.</td>
+                <td class="a-value" style="width: 45px;">{{ $data['rt_dituju'] ?? '' }}</td>
+                <td style="width: 100%;"></td>
             </tr>
         </table>
         <table class="alamat-table alamat-indent">
@@ -431,14 +438,16 @@
     </div>
 
     @php $pengikut = $data['pengikut'] ?? []; @endphp
-    {{-- Blok pengikut hanya tampil bila ada pengikut, supaya hemat ruang --}}
+    {{-- Bila ada pengikut: Jumlah Pengikut, tabel, dan penutup/TTD dipindah ke halaman 2 --}}
     @if(count($pengikut) > 0)
+    <div class="page-two">
         <!-- ══ JUMLAH PENGIKUT ══ -->
         <table class="alamat-table" style="margin-top: 8px;">
             <tr>
                 <td class="a-label">Jumlah Pengikut :</td>
-                <td class="a-value" style="width: 70px;">{{ count($pengikut) }}</td>
-                <td class="a-label" style="padding-left: 8px; width: 100%;">Orang</td>
+                <td class="a-value" style="width: 28px; text-align: center;">{{ count($pengikut) }}</td>
+                <td class="a-label" style="padding-left: 6px;">Orang</td>
+                <td style="width: 100%;"></td>
             </tr>
         </table>
 
@@ -476,6 +485,10 @@
             </div>
         </div>
     </div>
+
+    @if(count($pengikut) > 0)
+    </div>{{-- /.page-two --}}
+    @endif
 
 </div>
 </body>

@@ -149,53 +149,74 @@ class SuratPengantarController extends Controller
             'tanggal_surat'      => 'required|date',
         ]);
 
-        $house = House::findOrFail($validated['house_id']);
-
         // Catatan: Surat Pengantar sengaja TIDAK menulis ke data warga (read-only).
         // Input/edit identitas warga dilakukan di Data Warga → Profil agar pembagian
         // pemilik/penyewa jelas dan tidak ambigu.
 
-        // Catat nomor surat ke Agenda Surat (reset tiap tahun) lalu pakai di PDF
-        $nomorSurat = $this->registerLetterNumber($validated);
+        // Catat nomor surat ke Agenda Surat (reset tiap tahun) + simpan snapshot
+        // data form supaya bisa dibuka/cetak ulang dari Agenda Surat.
+        $letter = $this->registerLetterNumber($validated);
 
-        $tanggalLahirFormatted = \Carbon\Carbon::parse($validated['tanggal_lahir'])->locale('id')->translatedFormat('d F Y');
-        $tanggalSuratFormatted = \Carbon\Carbon::parse($validated['tanggal_surat'])->locale('id')->translatedFormat('d F Y');
-
-        $pdf = Pdf::loadView('reports.surat-pengantar', [
-            'data'                => $validated,
-            'house'               => $house,
-            'nomor_surat_text'    => $nomorSurat,
-            'tanggal_lahir_fmt'   => $tanggalLahirFormatted,
-            'tanggal_surat_fmt'   => $tanggalSuratFormatted,
-            'ketua_name'          => $user->name,
-        ])->setPaper('a4', 'portrait');
-
-        $filename = 'SuratPengantar_' . str_replace('/', '-', $house->blok . $house->nomor) . '_' . now()->format('Ymd') . '.pdf';
+        $pdf = $this->buildPdf($validated, $letter->nomor_format);
+        $filename = 'SuratPengantar_' . str_replace('/', '-', $validated['nama_lengkap']) . '_' . now()->format('Ymd') . '.pdf';
 
         return $pdf->stream($filename);
     }
 
     /**
-     * Catat nomor surat baru ke Agenda Surat berdasarkan tanggal surat,
-     * lalu kembalikan nomor terformat (001/RT.44/VI/2026).
+     * Buka/cetak ulang Surat Pengantar dari snapshot data yang tersimpan di Agenda.
      */
-    private function registerLetterNumber(array $data): string
+    public function reprint(LetterNumber $letterNumber)
+    {
+        $user = auth()->user();
+        if (!in_array($user->role, ['ketua', 'admin', 'demo'])) {
+            abort(403);
+        }
+
+        if (empty($letterNumber->payload)) {
+            abort(404, 'Surat ini tidak punya data untuk dibuka ulang (mungkin entri agenda manual).');
+        }
+
+        $pdf = $this->buildPdf($letterNumber->payload, $letterNumber->nomor_format);
+        $filename = 'SuratPengantar_' . str_replace('/', '-', $letterNumber->payload['nama_lengkap'] ?? 'surat') . '.pdf';
+
+        return $pdf->stream($filename);
+    }
+
+    /** Render PDF Surat Pengantar dari array data form. */
+    private function buildPdf(array $data, string $nomorSurat)
+    {
+        $tanggalLahirFormatted = Carbon::parse($data['tanggal_lahir'])->locale('id')->translatedFormat('d F Y');
+        $tanggalSuratFormatted = Carbon::parse($data['tanggal_surat'])->locale('id')->translatedFormat('d F Y');
+
+        return Pdf::loadView('reports.surat-pengantar', [
+            'data'              => $data,
+            'nomor_surat_text'  => $nomorSurat,
+            'tanggal_lahir_fmt' => $tanggalLahirFormatted,
+            'tanggal_surat_fmt' => $tanggalSuratFormatted,
+        ])->setPaper('a4', 'portrait');
+    }
+
+    /**
+     * Catat nomor surat baru ke Agenda Surat berdasarkan tanggal surat,
+     * simpan snapshot data form, lalu kembalikan model LetterNumber.
+     */
+    private function registerLetterNumber(array $data): LetterNumber
     {
         $tanggal = Carbon::parse($data['tanggal_surat']);
         $tahun = (int) $tanggal->year;
         $bulan = (int) $tanggal->month;
         $nomorUrut = LetterNumber::nextNomorUrut($tahun);
 
-        LetterNumber::create([
+        return LetterNumber::create([
             'nomor_urut' => $nomorUrut,
             'tahun'      => $tahun,
             'bulan'      => $bulan,
             'jenis'      => 'Surat Pengantar',
             'keterangan' => 'Surat Pengantar a.n. ' . $data['nama_lengkap'],
+            'payload'    => $data,
             'tanggal'    => $tanggal->toDateString(),
             'created_by' => auth()->id(),
         ]);
-
-        return LetterNumber::format($nomorUrut, $bulan, $tahun);
     }
 }

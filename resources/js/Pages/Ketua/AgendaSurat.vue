@@ -8,7 +8,7 @@ import { Label } from '@/Components/ui/label';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/Components/ui/dialog';
-import { BookText, Plus, Pencil, Trash2, Search, Hash } from 'lucide-vue-next';
+import { BookText, Plus, Pencil, Trash2, Search, Hash, FileText } from 'lucide-vue-next';
 
 const props = defineProps({
     entries: Array,
@@ -136,6 +136,16 @@ const destroy = (e) => {
                             <td class="px-4 py-3 text-slate-600">{{ formatTanggal(e.tanggal) }}</td>
                             <td class="px-4 py-3">
                                 <div class="flex items-center justify-end gap-1">
+                                    <a
+                                        v-if="e.has_pdf"
+                                        :href="route('ketua.surat-pengantar.reprint', e.id)"
+                                        target="_blank"
+                                        rel="noopener"
+                                        title="Buka / cetak ulang PDF surat"
+                                        class="inline-flex items-center justify-center h-9 px-3 rounded-md text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                                    >
+                                        <FileText class="w-4 h-4 mr-1.5" /> PDF
+                                    </a>
                                     <Button variant="ghost" size="sm" class="text-slate-600 hover:bg-slate-100" @click="openEdit(e)">
                                         <Pencil class="w-4 h-4" />
                                     </Button>

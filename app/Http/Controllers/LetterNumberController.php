@@ -34,6 +34,7 @@ class LetterNumberController extends Controller
                 'keterangan'   => $e->keterangan,
                 'tanggal'      => $e->tanggal->format('Y-m-d'),
                 'created_by'   => $e->creator?->name,
+                'has_pdf'      => !empty($e->payload),
             ]);
 
         $tahun = (int) now()->year;

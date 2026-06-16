@@ -12,12 +12,14 @@ class LetterNumber extends Model
         'bulan',
         'jenis',
         'keterangan',
+        'payload',
         'tanggal',
         'created_by',
     ];
 
     protected $casts = [
         'tanggal' => 'date',
+        'payload' => 'array',
     ];
 
     private const ROMAN = [
