@@ -158,7 +158,7 @@ class ResidentProfileController extends Controller
             return back();
         }
 
-        if (Storage::disk('public')->exists($profile->kk_path)) {
+        if ($profile->kk_path && Storage::disk('public')->exists($profile->kk_path)) {
             Storage::disk('public')->delete($profile->kk_path);
         }
         $profile->update(['kk_path' => null]);
@@ -229,7 +229,7 @@ class ResidentProfileController extends Controller
             abort(403);
         }
 
-        if (Storage::disk('public')->exists($idCard->file_path)) {
+        if ($idCard->file_path && Storage::disk('public')->exists($idCard->file_path)) {
             Storage::disk('public')->delete($idCard->file_path);
         }
 
@@ -294,7 +294,7 @@ class ResidentProfileController extends Controller
         if (!$profile || !$profile->kk_path) {
             return back();
         }
-        if (Storage::disk('public')->exists($profile->kk_path)) {
+        if ($profile->kk_path && Storage::disk('public')->exists($profile->kk_path)) {
             Storage::disk('public')->delete($profile->kk_path);
         }
         $profile->update(['kk_path' => null]);
@@ -353,7 +353,7 @@ class ResidentProfileController extends Controller
             abort(403, 'KTP tidak terkait dengan slot ini.');
         }
 
-        if (Storage::disk('public')->exists($idCard->file_path)) {
+        if ($idCard->file_path && Storage::disk('public')->exists($idCard->file_path)) {
             Storage::disk('public')->delete($idCard->file_path);
         }
         $idCard->delete();
