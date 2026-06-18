@@ -47,6 +47,7 @@ class DemografiController extends Controller
 
         // Akumulator agama
         $agama = [];        // label => count
+        $agamaPeople = [];  // label => array of people (untuk drilldown)
         $agamaBelum = 0;    // tanpa agama
 
         $houses = House::with([
@@ -76,6 +77,12 @@ class DemografiController extends Controller
                     $ag = $this->normalizeAgama($card->agama);
                     if ($ag) {
                         $agama[$ag] = ($agama[$ag] ?? 0) + 1;
+                        $agamaPeople[$ag][] = [
+                            'nama'  => $card->nama ?: ($card->label ?: '(tanpa nama)'),
+                            'jk'    => $jk,
+                            'rumah' => $rumah,
+                            'slot'  => $slot,
+                        ];
                     } else {
                         $agamaBelum++;
                     }
@@ -135,16 +142,35 @@ class DemografiController extends Controller
             'Konghucu'  => ['color' => 'red',     'icon' => 'sparkles'],
             'Lainnya'   => ['color' => 'slate',   'icon' => 'users'],
         ];
+        // Rekap per rumah untuk drilldown: { rumah, jumlah, anggota[] }, urut natural.
+        $rumahRecap = function (array $people) {
+            $byRumah = [];
+            foreach ($people as $p) {
+                $byRumah[$p['rumah']][] = $p;
+            }
+            uksort($byRumah, fn($a, $b) => strnatcasecmp($a, $b));
+            $rows = [];
+            foreach ($byRumah as $rumah => $anggota) {
+                $rows[] = ['rumah' => $rumah, 'jumlah' => count($anggota), 'anggota' => $anggota];
+            }
+            return $rows;
+        };
+
         $agamaOut = [];
+        $buildAgama = function (string $label, int $count, array $meta) use ($agamaPeople, $rumahRecap) {
+            $people = $agamaPeople[$label] ?? [];
+            $rumah = $rumahRecap($people);
+            return ['label' => $label, 'count' => $count, 'rumah_count' => count($rumah), 'rumah' => $rumah] + $meta;
+        };
         foreach ($agamaMeta as $label => $meta) {
             if (!empty($agama[$label])) {
-                $agamaOut[] = ['label' => $label, 'count' => $agama[$label]] + $meta;
+                $agamaOut[] = $buildAgama($label, $agama[$label], $meta);
                 unset($agama[$label]);
             }
         }
         // Agama tak terduga (di luar daftar baku)
         foreach ($agama as $label => $count) {
-            $agamaOut[] = ['label' => $label, 'count' => $count, 'color' => 'slate', 'icon' => 'users'];
+            $agamaOut[] = $buildAgama($label, $count, ['color' => 'slate', 'icon' => 'users']);
         }
 
         return Inertia::render('Ketua/Demografi', [

@@ -28,6 +28,22 @@ const ac = (key) => agamaColorMap[key] || agamaColorMap.slate;
 const agamaTotal = computed(() => (props.agama?.data || []).reduce((s, a) => s + a.count, 0));
 const agamaPct = (n) => agamaTotal.value > 0 ? Math.round((n / agamaTotal.value) * 100) : 0;
 
+// Drilldown agama
+const isAgamaOpen = ref(false);
+const agamaDetail = ref(null);
+const agamaView = ref('rumah'); // 'rumah' | 'individu'
+
+const openAgama = (a) => {
+    if (!a.count) return;
+    agamaDetail.value = a;
+    agamaView.value = 'rumah';
+    isAgamaOpen.value = true;
+};
+
+const agamaIndividu = computed(() =>
+    (agamaDetail.value?.rumah || []).flatMap(r => r.anggota)
+);
+
 // Map warna kategori → kelas Tailwind literal (jangan di-generate dinamis biar tidak ke-purge).
 const colorMap = {
     pink:    { bg: 'bg-pink-50',    text: 'text-pink-700',    ring: 'border-pink-200',    bar: 'bg-pink-500',    dot: 'bg-pink-500' },
@@ -200,23 +216,29 @@ const fmtUmur = (p) => {
                 </div>
 
                 <div v-if="agama.data.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    <div
+                    <button
                         v-for="a in agama.data"
                         :key="a.label"
-                        class="rounded-xl border p-4"
+                        type="button"
+                        @click="openAgama(a)"
+                        class="text-left rounded-xl border p-4 transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
                         :class="ac(a.color).ring"
                     >
-                        <span class="inline-flex items-center text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full" :class="[ac(a.color).bg, ac(a.color).text]">
-                            {{ a.label }}
-                        </span>
+                        <div class="flex items-center justify-between">
+                            <span class="inline-flex items-center text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full" :class="[ac(a.color).bg, ac(a.color).text]">
+                                {{ a.label }}
+                            </span>
+                            <ChevronRight class="w-4 h-4 text-slate-300" />
+                        </div>
                         <div class="flex items-baseline gap-1.5 mt-2">
                             <span class="text-3xl font-extrabold text-slate-900">{{ a.count }}</span>
                             <span class="text-sm text-slate-500">jiwa · {{ agamaPct(a.count) }}%</span>
                         </div>
+                        <p class="text-xs text-slate-400 mt-0.5">tersebar di {{ a.rumah_count }} rumah</p>
                         <div class="mt-3 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                             <div class="h-full rounded-full transition-all" :class="ac(a.color).bar" :style="{ width: agamaPct(a.count) + '%' }"></div>
                         </div>
-                    </div>
+                    </button>
                 </div>
                 <p v-else class="text-sm text-slate-400">Belum ada data agama yang terisi.</p>
 
@@ -290,6 +312,85 @@ const fmtUmur = (p) => {
                                     </span>
                                 </td>
                                 <td class="py-2 text-center text-slate-600 whitespace-nowrap">{{ fmtUmur(p) }}</td>
+                                <td class="py-2 text-right font-mono text-xs text-slate-500">{{ p.rumah }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Drilldown agama: rekap per rumah + daftar individu -->
+        <Dialog v-model:open="isAgamaOpen">
+            <DialogContent class="sm:max-w-[560px] max-h-[80vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle class="flex items-center gap-2">
+                        <span v-if="agamaDetail" class="w-3 h-3 rounded-full" :class="ac(agamaDetail.color).bar"></span>
+                        {{ agamaDetail?.label }} — {{ agamaDetail?.count }} jiwa
+                    </DialogTitle>
+                    <DialogDescription>
+                        Tersebar di {{ agamaDetail?.rumah_count }} rumah.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <!-- Toggle tampilan -->
+                <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 text-xs font-semibold">
+                    <button
+                        type="button"
+                        class="flex-1 rounded-md px-3 py-1.5 transition-colors"
+                        :class="agamaView === 'rumah' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
+                        @click="agamaView = 'rumah'"
+                    >Per Rumah</button>
+                    <button
+                        type="button"
+                        class="flex-1 rounded-md px-3 py-1.5 transition-colors"
+                        :class="agamaView === 'individu' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
+                        @click="agamaView = 'individu'"
+                    >Per Individu</button>
+                </div>
+
+                <div class="overflow-y-auto -mx-2 px-2">
+                    <!-- Tampilan per rumah -->
+                    <div v-if="agamaView === 'rumah'" class="space-y-2">
+                        <div
+                            v-for="r in agamaDetail?.rumah || []"
+                            :key="r.rumah"
+                            class="rounded-lg border border-slate-100 p-3"
+                        >
+                            <div class="flex items-center justify-between">
+                                <span class="font-mono text-sm font-semibold text-slate-700">{{ r.rumah }}</span>
+                                <span class="text-xs font-semibold text-slate-500">{{ r.jumlah }} jiwa</span>
+                            </div>
+                            <div class="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+                                <span v-for="(p, i) in r.anggota" :key="i" class="inline-flex items-center gap-1 text-sm text-slate-600">
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="p.jk === 'L' ? 'bg-blue-500' : (p.jk === 'P' ? 'bg-pink-500' : 'bg-slate-400')"></span>
+                                    {{ p.nama }}
+                                    <span class="text-[10px] text-slate-400">· {{ p.slot }}</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tampilan per individu -->
+                    <table v-else class="w-full text-sm">
+                        <thead class="text-[11px] uppercase tracking-wider text-slate-400 border-b sticky top-0 bg-white">
+                            <tr>
+                                <th class="text-left py-2 font-semibold">Nama</th>
+                                <th class="text-center py-2 font-semibold">JK</th>
+                                <th class="text-right py-2 font-semibold">Rumah</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-for="(p, i) in agamaIndividu" :key="i">
+                                <td class="py-2 text-slate-800">
+                                    {{ p.nama }}
+                                    <span class="text-[10px] text-slate-400">· {{ p.slot }}</span>
+                                </td>
+                                <td class="py-2 text-center">
+                                    <span class="text-xs font-semibold" :class="p.jk === 'L' ? 'text-blue-600' : (p.jk === 'P' ? 'text-pink-600' : 'text-slate-400')">
+                                        {{ p.jk || '?' }}
+                                    </span>
+                                </td>
                                 <td class="py-2 text-right font-mono text-xs text-slate-500">{{ p.rumah }}</td>
                             </tr>
                         </tbody>
