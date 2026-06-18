@@ -5,13 +5,28 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
 } from '@/Components/ui/dialog';
-import { BarChart3, Users, UserCheck, UserX, Calendar, Info, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-vue-next';
+import { BarChart3, Users, UserCheck, UserX, Calendar, Info, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Church } from 'lucide-vue-next';
 
 const props = defineProps({
     kategori: Array,
     ringkasan: Object,
+    agama: Object,
     generated_at: String,
 });
+
+// Map warna agama → kelas Tailwind literal (jangan di-generate dinamis biar tidak ke-purge).
+const agamaColorMap = {
+    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'border-emerald-200', bar: 'bg-emerald-500' },
+    sky:     { bg: 'bg-sky-50',     text: 'text-sky-700',     ring: 'border-sky-200',     bar: 'bg-sky-500' },
+    blue:    { bg: 'bg-blue-50',    text: 'text-blue-700',    ring: 'border-blue-200',    bar: 'bg-blue-500' },
+    amber:   { bg: 'bg-amber-50',   text: 'text-amber-700',   ring: 'border-amber-200',   bar: 'bg-amber-500' },
+    orange:  { bg: 'bg-orange-50',  text: 'text-orange-700',  ring: 'border-orange-200',  bar: 'bg-orange-500' },
+    red:     { bg: 'bg-red-50',     text: 'text-red-700',     ring: 'border-red-200',     bar: 'bg-red-500' },
+    slate:   { bg: 'bg-slate-100',  text: 'text-slate-700',   ring: 'border-slate-200',   bar: 'bg-slate-400' },
+};
+const ac = (key) => agamaColorMap[key] || agamaColorMap.slate;
+const agamaTotal = computed(() => (props.agama?.data || []).reduce((s, a) => s + a.count, 0));
+const agamaPct = (n) => agamaTotal.value > 0 ? Math.round((n / agamaTotal.value) * 100) : 0;
 
 // Map warna kategori → kelas Tailwind literal (jangan di-generate dinamis biar tidak ke-purge).
 const colorMap = {
@@ -152,27 +167,63 @@ const fmtUmur = (p) => {
                     :class="[c(cat.color).ring, cat.count ? 'hover:-translate-y-0.5 cursor-pointer' : 'opacity-70 cursor-default']"
                 >
                     <div class="flex items-center justify-between mb-2">
-                        <span class="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-full" :class="[c(cat.color).bg, c(cat.color).text]">
+                        <span class="inline-flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider px-2.5 py-1 rounded-full" :class="[c(cat.color).bg, c(cat.color).text]">
                             {{ cat.label }}
                         </span>
-                        <ChevronRight v-if="cat.count" class="w-4 h-4 text-slate-300" />
+                        <ChevronRight v-if="cat.count" class="w-5 h-5 text-slate-300" />
                     </div>
                     <div class="flex items-baseline gap-1.5">
-                        <span class="text-3xl font-extrabold text-slate-900">{{ cat.count }}</span>
-                        <span class="text-xs text-slate-400">jiwa · {{ pct(cat.count) }}%</span>
+                        <span class="text-4xl font-extrabold text-slate-900">{{ cat.count }}</span>
+                        <span class="text-sm text-slate-500">jiwa · {{ pct(cat.count) }}%</span>
                     </div>
-                    <p class="text-[11px] text-slate-400 mt-0.5">{{ cat.desc }}</p>
+                    <p class="text-sm text-slate-500 mt-0.5">{{ cat.desc }}</p>
                     <!-- progress bar -->
-                    <div class="mt-3 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div class="mt-3 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                         <div class="h-full rounded-full transition-all" :class="c(cat.color).bar" :style="{ width: (cat.count / maxCount * 100) + '%' }"></div>
                     </div>
                     <!-- gender split -->
-                    <div class="mt-2 flex items-center gap-3 text-[11px] text-slate-500">
-                        <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span>L {{ cat.L }}</span>
-                        <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pink-500"></span>P {{ cat.P }}</span>
-                        <span v-if="cat.lainnya" class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-400"></span>? {{ cat.lainnya }}</span>
+                    <div class="mt-2.5 flex items-center gap-4 text-sm font-medium text-slate-600">
+                        <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>L {{ cat.L }}</span>
+                        <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-pink-500"></span>P {{ cat.P }}</span>
+                        <span v-if="cat.lainnya" class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>? {{ cat.lainnya }}</span>
                     </div>
                 </button>
+            </div>
+
+            <!-- Komposisi Agama -->
+            <div v-if="agama" class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="flex items-center gap-2 text-sm font-bold text-slate-800">
+                        <Church class="w-4 h-4 text-violet-600" /> Komposisi Agama
+                    </h3>
+                    <span class="text-xs text-slate-400">{{ agamaTotal }} dari {{ agama.total }} anggota</span>
+                </div>
+
+                <div v-if="agama.data.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    <div
+                        v-for="a in agama.data"
+                        :key="a.label"
+                        class="rounded-xl border p-4"
+                        :class="ac(a.color).ring"
+                    >
+                        <span class="inline-flex items-center text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full" :class="[ac(a.color).bg, ac(a.color).text]">
+                            {{ a.label }}
+                        </span>
+                        <div class="flex items-baseline gap-1.5 mt-2">
+                            <span class="text-3xl font-extrabold text-slate-900">{{ a.count }}</span>
+                            <span class="text-sm text-slate-500">jiwa · {{ agamaPct(a.count) }}%</span>
+                        </div>
+                        <div class="mt-3 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                            <div class="h-full rounded-full transition-all" :class="ac(a.color).bar" :style="{ width: agamaPct(a.count) + '%' }"></div>
+                        </div>
+                    </div>
+                </div>
+                <p v-else class="text-sm text-slate-400">Belum ada data agama yang terisi.</p>
+
+                <p v-if="agama.belum_terdata > 0" class="mt-3 text-xs text-slate-400">
+                    <Info class="inline w-3.5 h-3.5 -mt-0.5" />
+                    {{ agama.belum_terdata }} anggota belum mengisi data agama.
+                </p>
             </div>
 
             <!-- Bar chart perbandingan -->
