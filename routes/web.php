@@ -104,6 +104,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // Demografi / Statistik Kependudukan (khusus Ketua)
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/ketua/demografi', [\App\Http\Controllers\DemografiController::class, 'index'])->name('ketua.demografi.index');
+
+    // Pemantauan Stunting / Gizi Balita (khusus Ketua)
+    Route::get('/ketua/stunting', [\App\Http\Controllers\StuntingController::class, 'index'])->name('ketua.stunting.index');
+    Route::get('/ketua/stunting/template', [\App\Http\Controllers\StuntingController::class, 'template'])->name('ketua.stunting.template');
+    Route::post('/ketua/stunting/import', [\App\Http\Controllers\StuntingController::class, 'import'])->name('ketua.stunting.import');
+    Route::post('/ketua/stunting/{idCard}/ukur', [\App\Http\Controllers\StuntingController::class, 'store'])->name('ketua.stunting.store');
+    Route::delete('/ketua/stunting/ukur/{measurement}', [\App\Http\Controllers\StuntingController::class, 'destroy'])->name('ketua.stunting.destroy');
 });
 
 // Surat Pengantar (ketua, admin, demo)

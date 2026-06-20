@@ -31,4 +31,9 @@ class ResidentIdCard extends Model
     {
         return $this->belongsTo(ResidentProfile::class, 'resident_profile_id');
     }
+
+    public function measurements()
+    {
+        return $this->hasMany(ChildMeasurement::class, 'resident_id_card_id');
+    }
 }
