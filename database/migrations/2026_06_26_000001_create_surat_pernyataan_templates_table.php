@@ -30,12 +30,12 @@ return new class extends Migration
                 'Pernyataan belum menikah beserta data calon pasangan dan persetujuan ayah & ibu kandung.',
             ],
             'ditinggalkan-istri' => [
-                'Surat Pernyataan Ditinggalkan Istri',
-                'Pernyataan suami bahwa telah ditinggalkan istri sejak tanggal tertentu dan tidak dinafkahi.',
+                'Surat Pernyataan Duda',
+                'Pernyataan status duda (tidak lagi bersama istri) sejak tanggal tertentu.',
             ],
             'ditinggalkan-suami' => [
-                'Surat Pernyataan Ditinggalkan Suami',
-                'Pernyataan istri bahwa telah ditinggalkan suami sejak tanggal tertentu dan tidak dinafkahi.',
+                'Surat Pernyataan Janda',
+                'Pernyataan status janda (tidak lagi bersama suami) sejak tanggal tertentu.',
             ],
             'perbedaan-data' => [
                 'Surat Pernyataan Perbedaan Data',

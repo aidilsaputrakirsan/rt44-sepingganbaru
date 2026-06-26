@@ -9,11 +9,18 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class MonthlyReportController extends Controller
 {
     private const PHOTO_DIR = 'laporan-bulanan';
+
+    /** Batas sisi terpanjang foto (px). Lebih dari cukup utk kolom dokumentasi PDF (210/220px). */
+    private const PHOTO_MAX_DIM = 1280;
+
+    /** Kualitas re-encode JPEG (0-100). 80 = kompresi bagus, ukuran kecil, kualitas tetap layak cetak. */
+    private const PHOTO_JPEG_QUALITY = 80;
 
     private function authorizeKetua(): void
     {
@@ -209,18 +216,70 @@ class MonthlyReportController extends Controller
         ]);
     }
 
-    /** Simpan foto ke public disk + deteksi orientasi. Return [path, orientation]. */
+    /**
+     * Simpan foto ke public disk + deteksi orientasi.
+     * Foto besar otomatis dikecilkan (sisi terpanjang maks PHOTO_MAX_DIM) & dikompres
+     * supaya ukuran file hemat — kualitas tetap lebih dari cukup utk tampil di PDF.
+     * Return [path, orientation].
+     */
     private function storePhoto($file): array
     {
-        $orientation = 'landscape';
-        $info = @getimagesize($file->getRealPath());
-        if ($info && $info[1] > $info[0]) {
-            $orientation = 'portrait';
+        $realPath = $file->getRealPath();
+        $info = @getimagesize($realPath);
+
+        // Bukan gambar yang bisa dibaca GD → simpan apa adanya (fallback aman).
+        if (! $info) {
+            return [$file->store(self::PHOTO_DIR, 'public'), 'landscape'];
         }
 
-        $path = $file->store(self::PHOTO_DIR, 'public');
+        [$width, $height, $type] = $info;
+        $orientation = $height > $width ? 'portrait' : 'landscape';
 
-        return [$path, $orientation];
+        $src = match ($type) {
+            IMAGETYPE_JPEG => @imagecreatefromjpeg($realPath),
+            IMAGETYPE_PNG  => @imagecreatefrompng($realPath),
+            default        => null,
+        };
+
+        // Tipe tak didukung GD (mis. format aneh) → simpan apa adanya.
+        if (! $src) {
+            return [$file->store(self::PHOTO_DIR, 'public'), $orientation];
+        }
+
+        // Hitung dimensi target — hanya dikecilkan bila melebihi batas (tidak pernah memperbesar).
+        $longest = max($width, $height);
+        $scale = $longest > self::PHOTO_MAX_DIM ? self::PHOTO_MAX_DIM / $longest : 1.0;
+        $newW = max(1, (int) round($width * $scale));
+        $newH = max(1, (int) round($height * $scale));
+
+        $isPng = $type === IMAGETYPE_PNG;
+        $filename = self::PHOTO_DIR . '/' . Str::uuid()->toString() . ($isPng ? '.png' : '.jpg');
+        $fullPath = storage_path('app/public/' . $filename);
+
+        if (! is_dir(dirname($fullPath))) {
+            @mkdir(dirname($fullPath), 0775, true);
+        }
+
+        $dst = imagecreatetruecolor($newW, $newH);
+        if ($isPng) {
+            // Pertahankan transparansi PNG.
+            imagealphablending($dst, false);
+            imagesavealpha($dst, true);
+        } else {
+            // Latar putih utk jaga-jaga bila sumber punya alpha.
+            imagefilledrectangle($dst, 0, 0, $newW, $newH, imagecolorallocate($dst, 255, 255, 255));
+        }
+
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $newW, $newH, $width, $height);
+
+        $isPng
+            ? imagepng($dst, $fullPath, 6)
+            : imagejpeg($dst, $fullPath, self::PHOTO_JPEG_QUALITY);
+
+        imagedestroy($src);
+        imagedestroy($dst);
+
+        return [$filename, $orientation];
     }
 
     private function deletePhoto(?string $path): void
