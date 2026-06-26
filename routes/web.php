@@ -131,6 +131,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/ketua/surat-pernyataan/{suratPernyataan}', [\App\Http\Controllers\SuratPernyataanController::class, 'destroy'])->name('ketua.surat-pernyataan.destroy');
     Route::get('/ketua/surat-pernyataan/{suratPernyataan}/download', [\App\Http\Controllers\SuratPernyataanController::class, 'download'])->name('ketua.surat-pernyataan.download');
 
+    // Laporan Bulanan (pelaksanaan tugas Ketua RT untuk kelurahan)
+    Route::get('/ketua/laporan-bulanan', [\App\Http\Controllers\MonthlyReportController::class, 'index'])->name('ketua.laporan-bulanan.index');
+    Route::post('/ketua/laporan-bulanan', [\App\Http\Controllers\MonthlyReportController::class, 'store'])->name('ketua.laporan-bulanan.store');
+    Route::get('/ketua/laporan-bulanan/{laporanBulanan}', [\App\Http\Controllers\MonthlyReportController::class, 'show'])->name('ketua.laporan-bulanan.show');
+    Route::put('/ketua/laporan-bulanan/{laporanBulanan}', [\App\Http\Controllers\MonthlyReportController::class, 'update'])->name('ketua.laporan-bulanan.update');
+    Route::delete('/ketua/laporan-bulanan/{laporanBulanan}', [\App\Http\Controllers\MonthlyReportController::class, 'destroy'])->name('ketua.laporan-bulanan.destroy');
+    Route::get('/ketua/laporan-bulanan/{laporanBulanan}/pdf', [\App\Http\Controllers\MonthlyReportController::class, 'exportPdf'])->name('ketua.laporan-bulanan.pdf');
+    Route::post('/ketua/laporan-bulanan/{laporanBulanan}/activities', [\App\Http\Controllers\MonthlyReportController::class, 'storeActivity'])->name('ketua.laporan-bulanan.activities.store');
+    Route::post('/ketua/laporan-bulanan/{laporanBulanan}/activities/{activity}', [\App\Http\Controllers\MonthlyReportController::class, 'updateActivity'])->name('ketua.laporan-bulanan.activities.update');
+    Route::delete('/ketua/laporan-bulanan/{laporanBulanan}/activities/{activity}', [\App\Http\Controllers\MonthlyReportController::class, 'destroyActivity'])->name('ketua.laporan-bulanan.activities.destroy');
+
     // Agenda Surat (buku nomor surat keluar)
     Route::get('/ketua/agenda-surat', [\App\Http\Controllers\LetterNumberController::class, 'index'])->name('ketua.agenda-surat.index');
     Route::post('/ketua/agenda-surat', [\App\Http\Controllers\LetterNumberController::class, 'store'])->name('ketua.agenda-surat.store');
