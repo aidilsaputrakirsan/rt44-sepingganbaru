@@ -43,7 +43,7 @@
         }
         .header-logo {
             display: table-cell;
-            width: 58px;
+            width: 80px;
             vertical-align: middle;
         }
         .header-logo img {
@@ -58,11 +58,11 @@
         }
         .header-text .kecamatan {
             font-size: 12px;
-            font-weight: normal;
+            font-weight: bold;
         }
         .header-text .kelurahan {
             font-size: 12px;
-            font-weight: normal;
+            font-weight: bold;
         }
         .header-text .rt-title {
             font-size: 19px;
@@ -74,9 +74,20 @@
             font-size: 9.5px;
             margin-top: 1px;
         }
-        .header-spacer {
+        .header-text .kode-pos {
+            font-size: 9.5px;
+            margin-top: 1px;
+            text-align: center;
+        }
+        .header-logo-right {
             display: table-cell;
-            width: 58px;
+            width: 80px;
+            vertical-align: middle;
+            text-align: right;
+        }
+        .header-logo-right img {
+            width: 80px;
+            height: 80px;
         }
 
         /* ── Tanggal & Tujuan ── */
@@ -258,16 +269,18 @@
     <div class="header">
         <div class="header-row">
             <div class="header-logo">
-                <img src="{{ public_path('logort.png') }}" alt="Logo RT-44" />
+                <img src="{{ public_path('images/logoberuang.png') }}" alt="Logo Beruang" />
             </div>
             <div class="header-text">
                 <div class="kecamatan">KECAMATAN BALIKPAPAN SELATAN</div>
                 <div class="kelurahan">KELURAHAN SEPINGGAN BARU</div>
-                <div class="rt-title">Rukun Tetangga 44</div>
-                <div class="alamat">JL. SEPINGGAN PRATAMA, PERUMAHAN PERMATA GADING BLOK G DAN H</div>
-                <div class="alamat">HP. 085752520095</div>
+                <div class="rt-title">Rukun Tetangga 044</div>
+                <div class="alamat">JL. SEPINGGAN PRATAMA, PERUMAHAN PERMATA GADING BLOK G DAN H &nbsp;|&nbsp; HP. 085752520095</div>
+                <div class="kode-pos">KODE POS 76115</div>
             </div>
-            <div class="header-spacer"></div>
+            <div class="header-logo-right">
+                <img src="{{ public_path('logort.png') }}" alt="Logo RT-44" />
+            </div>
         </div>
     </div>
 

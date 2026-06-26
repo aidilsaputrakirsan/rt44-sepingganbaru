@@ -13,8 +13,13 @@ Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
+        'suratPernyataan' => \App\Http\Controllers\SuratPernyataanController::items(),
     ]);
 });
+
+// Download publik blangko Surat Pernyataan (tanpa login) — dipakai di homepage
+Route::get('/surat-pernyataan/{suratPernyataan}/download', [\App\Http\Controllers\SuratPernyataanController::class, 'publicDownload'])
+    ->name('surat-pernyataan.public-download');
 
 use App\Http\Controllers\DashboardController;
 
@@ -118,6 +123,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/ketua/surat-pengantar', [\App\Http\Controllers\SuratPengantarController::class, 'index'])->name('ketua.surat-pengantar.index');
     Route::post('/ketua/surat-pengantar/generate', [\App\Http\Controllers\SuratPengantarController::class, 'generate'])->name('ketua.surat-pengantar.generate');
     Route::get('/ketua/surat-pengantar/{letterNumber}/pdf', [\App\Http\Controllers\SuratPengantarController::class, 'reprint'])->name('ketua.surat-pengantar.reprint');
+
+    // Surat Pernyataan (blangko, CRUD khusus ketua)
+    Route::get('/ketua/surat-pernyataan', [\App\Http\Controllers\SuratPernyataanController::class, 'index'])->name('ketua.surat-pernyataan.index');
+    Route::post('/ketua/surat-pernyataan', [\App\Http\Controllers\SuratPernyataanController::class, 'store'])->name('ketua.surat-pernyataan.store');
+    Route::post('/ketua/surat-pernyataan/{suratPernyataan}', [\App\Http\Controllers\SuratPernyataanController::class, 'update'])->name('ketua.surat-pernyataan.update');
+    Route::delete('/ketua/surat-pernyataan/{suratPernyataan}', [\App\Http\Controllers\SuratPernyataanController::class, 'destroy'])->name('ketua.surat-pernyataan.destroy');
+    Route::get('/ketua/surat-pernyataan/{suratPernyataan}/download', [\App\Http\Controllers\SuratPernyataanController::class, 'download'])->name('ketua.surat-pernyataan.download');
 
     // Agenda Surat (buku nomor surat keluar)
     Route::get('/ketua/agenda-surat', [\App\Http\Controllers\LetterNumberController::class, 'index'])->name('ketua.agenda-surat.index');

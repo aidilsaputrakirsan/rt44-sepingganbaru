@@ -1,7 +1,7 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart, IdCard, Newspaper, FileText, BookText, BarChart3, ShieldCheck, KeyRound, Baby } from 'lucide-vue-next';
+import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart, IdCard, Newspaper, FileText, FileSignature, BookText, BarChart3, ShieldCheck, KeyRound, Baby } from 'lucide-vue-next';
 
 const props = defineProps({
     mobile: {
@@ -63,6 +63,7 @@ const menuGroups = computed(() => {
             ]},
             { label: 'Surat Menyurat', items: [
                 { name: 'Surat Pengantar', icon: FileText, route: 'ketua.surat-pengantar.index' },
+                { name: 'Surat Pernyataan', icon: FileSignature, route: 'ketua.surat-pernyataan.index' },
                 { name: 'Agenda Surat', icon: BookText, route: 'ketua.agenda-surat.index' },
             ]},
             { label: 'Lainnya', items: [
