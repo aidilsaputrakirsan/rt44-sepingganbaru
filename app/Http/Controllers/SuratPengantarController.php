@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\House;
 use App\Models\LetterNumber;
+use App\Models\MonthlyReport;
+use App\Models\MonthlyReportActivity;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -157,6 +159,9 @@ class SuratPengantarController extends Controller
         // data form supaya bisa dibuka/cetak ulang dari Agenda Surat.
         $letter = $this->registerLetterNumber($validated);
 
+        // Catat juga sebagai kegiatan di Laporan Bulanan sesuai bulan tanggal surat.
+        $this->recordToMonthlyReport($validated, $letter);
+
         $pdf = $this->buildPdf($validated, $letter->nomor_format);
         $filename = 'SuratPengantar_' . str_replace('/', '-', $validated['nama_lengkap']) . '_' . now()->format('Ymd') . '.pdf';
 
@@ -217,6 +222,35 @@ class SuratPengantarController extends Controller
             'payload'    => $data,
             'tanggal'    => $tanggal->toDateString(),
             'created_by' => auth()->id(),
+        ]);
+    }
+
+    /**
+     * Masukkan surat pengantar sebagai kegiatan di Laporan Bulanan.
+     * Laporan bulan terkait dibuat otomatis jika belum ada (period = awal bulan
+     * tanggal surat). Uraian dibangun dari maksud/tujuan & atas nama pemohon.
+     */
+    private function recordToMonthlyReport(array $data, LetterNumber $letter): void
+    {
+        $tanggal = Carbon::parse($data['tanggal_surat']);
+
+        $report = MonthlyReport::firstOrCreate(
+            ['period' => $tanggal->copy()->startOfMonth()->toDateString()],
+            [
+                'tanggal_pengesahan' => now()->toDateString(),
+                'created_by'         => auth()->id(),
+            ]
+        );
+
+        $uraian = 'Penerbitan Surat Pengantar a.n. ' . $data['nama_lengkap']
+            . ' untuk keperluan ' . rtrim($data['maksud_tujuan'], '. ') . '.';
+
+        MonthlyReportActivity::create([
+            'monthly_report_id' => $report->id,
+            'tanggal'           => $tanggal->toDateString(),
+            'uraian'            => $uraian,
+            'no_surat'          => $letter->nomor_format,
+            'sort_order'        => (int) $report->activities()->max('sort_order') + 1,
         ]);
     }
 }
