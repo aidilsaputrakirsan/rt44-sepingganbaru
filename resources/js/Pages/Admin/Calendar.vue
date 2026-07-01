@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { Search, X, Loader2, ChevronLeft, ChevronRight, Download, Wallet, Calendar as CalendarIcon, FileText, Pencil } from 'lucide-vue-next';
+import { Search, X, Loader2, ChevronLeft, ChevronRight, Download, Wallet, Calendar as CalendarIcon, FileText, Pencil, MessageSquareWarning, Copy, Check } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
 const props = defineProps({
@@ -325,6 +325,41 @@ const openReminderModal = async (row) => {
  }
 };
 
+// --- Info Tunggakan (pesan broadcast WA) ---
+const isWarningModalOpen = ref(false);
+const warningLoading = ref(false);
+const warningMessage = ref('');
+const warningCounts = ref({ count_3: 0, count_6: 0 });
+const warningCopied = ref(false);
+
+const openWarningModal = async () => {
+ isWarningModalOpen.value = true;
+ warningLoading.value = true;
+ warningCopied.value = false;
+ warningMessage.value = '';
+
+ try {
+ const response = await fetch(route('admin.calendar.warning-message') + '?year=' + props.year);
+ const data = await response.json();
+ warningMessage.value = data.message || 'Gagal memuat pesan.';
+ warningCounts.value = { count_3: data.count_3 || 0, count_6: data.count_6 || 0 };
+ } catch (e) {
+ warningMessage.value = 'Gagal memuat pesan.';
+ } finally {
+ warningLoading.value = false;
+ }
+};
+
+const copyWarningMessage = async () => {
+ try {
+ await navigator.clipboard.writeText(warningMessage.value);
+ warningCopied.value = true;
+ setTimeout(() => { warningCopied.value = false; }, 2000);
+ } catch (e) {
+ // Clipboard API unavailable — ignore, user can select text manually
+ }
+};
+
 const confirmSendReminder = () => {
  if (!reminderTarget.value) return;
  reminderLoading.value = true;
@@ -367,6 +402,10 @@ const confirmSendReminder = () => {
                             <ChevronRight class="w-4 h-4" />
                         </Button>
                     </div>
+                    <Button variant="outline" size="sm" class="flex items-center gap-2" @click="openWarningModal">
+                        <MessageSquareWarning class="w-4 h-4" />
+                        Info Tunggakan
+                    </Button>
                     <a :href="route('admin.calendar.export-pdf', { year: year })" target="_blank" class="inline-flex">
                         <Button variant="outline" size="sm" class="flex items-center gap-2">
                             <Download class="w-4 h-4" />
@@ -666,6 +705,50 @@ const confirmSendReminder = () => {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+        <!-- Info Tunggakan Modal -->
+        <Dialog :open="isWarningModalOpen" @update:open="isWarningModalOpen = $event">
+            <DialogContent class="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Info Tunggakan — Pesan untuk Grup Warga</DialogTitle>
+                    <DialogDescription>
+                        Dihitung dari data Kalender Iuran {{ year }}, konsisten dengan Export PDF. Salin lalu tempel ke grup WhatsApp warga.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="space-y-3 py-2">
+                    <div v-if="!warningLoading" class="flex gap-3 text-xs">
+                        <span class="rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 font-medium">
+                            {{ warningCounts.count_3 }} rumah menunggak 3-5 bulan
+                        </span>
+                        <span class="rounded-full bg-red-50 text-red-700 border border-red-200 px-3 py-1 font-medium">
+                            {{ warningCounts.count_6 }} rumah menunggak ≥6 bulan
+                        </span>
+                    </div>
+
+                    <div class="rounded-lg border bg-green-50 p-3 max-h-80 overflow-y-auto">
+                        <div v-if="warningLoading" class="flex items-center justify-center py-6">
+                            <Loader2 class="w-5 h-5 animate-spin text-muted-foreground" />
+                            <span class="ml-2 text-xs text-muted-foreground">Menyusun pesan...</span>
+                        </div>
+                        <pre v-else class="text-xs whitespace-pre-wrap font-sans leading-relaxed text-gray-700">{{ warningMessage }}</pre>
+                    </div>
+                </div>
+
+                <DialogFooter>
+                    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 w-full">
+                        <Button type="button" variant="ghost" @click="isWarningModalOpen = false">
+                            Tutup
+                        </Button>
+                        <Button @click="copyWarningMessage" :disabled="warningLoading" class="bg-green-600 hover:bg-green-700">
+                            <Check v-if="warningCopied" class="w-4 h-4 mr-2" />
+                            <Copy v-else class="w-4 h-4 mr-2" />
+                            {{ warningCopied ? 'Tersalin!' : 'Salin Pesan' }}
+                        </Button>
+                    </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
         <!-- Lump Sum Payment Modal -->
         <Dialog :open="isLumpSumModalOpen" @update:open="isLumpSumModalOpen = $event">
             <DialogContent class="sm:max-w-lg max-h-[90vh] flex flex-col">

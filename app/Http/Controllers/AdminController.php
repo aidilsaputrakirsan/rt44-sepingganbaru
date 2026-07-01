@@ -461,6 +461,109 @@ class AdminController extends Controller
         return $pdf->stream("Kalender_Iuran_RT44_{$year}.pdf");
     }
 
+    /**
+     * Compose broadcast message listing houses with 3+ and 6+ consecutive unpaid months.
+     * Uses the same debt cutoff logic as exportCalendarPdf so numbers stay consistent with the PDF.
+     */
+    public function warningMessage(Request $request)
+    {
+        if (!in_array(auth()->user()->role, ['admin', 'demo'])) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $year = (int) $request->input('year', now()->year);
+        $currentYear = (int) now()->year;
+        $currentMonth = (int) now()->month;
+
+        if ($year < $currentYear) {
+            $cutoffMonth = 12;
+        } elseif ($year > $currentYear) {
+            $cutoffMonth = 0;
+        } else {
+            $cutoffMonth = $currentMonth - 1;
+        }
+
+        if ($cutoffMonth < 1) {
+            return response()->json([
+                'message' => "Belum ada data tunggakan untuk tahun {$year}.",
+                'count_3' => 0,
+                'count_6' => 0,
+            ]);
+        }
+
+        $houses = House::orderByRaw("REGEXP_SUBSTR(blok, '^[A-Za-z]+') ASC")
+            ->orderByRaw("CAST(REGEXP_SUBSTR(blok, '[0-9]+') AS UNSIGNED) ASC")
+            ->orderByRaw('CAST(nomor AS UNSIGNED) ASC')
+            ->orderBy('nomor')
+            ->get();
+
+        $dues = Due::whereYear('period', $year)->get();
+        $duesGrouped = $dues->keyBy(function ($d) {
+            return $d->house_id . '-' . Carbon::parse($d->period)->month;
+        });
+
+        // Konsisten dengan exportCalendarPdf: bulan dianggap "belum lunas" jika status due != paid.
+        // Streak dihitung mundur dari bulan cutoff, berhenti begitu ketemu bulan lunas atau tidak ada tagihan.
+        $threeToFive = [];
+        $sixPlus = [];
+
+        foreach ($houses as $house) {
+            $streak = 0;
+            for ($m = $cutoffMonth; $m >= 1; $m--) {
+                $due = $duesGrouped->get($house->id . '-' . $m);
+                if (!$due || $due->status === 'paid') break;
+                $streak++;
+            }
+
+            if ($streak >= 6) {
+                $sixPlus[] = $house->blok . '/' . $house->nomor;
+            } elseif ($streak >= 3) {
+                $threeToFive[] = $house->blok . '/' . $house->nomor;
+            }
+        }
+
+        $periodLabel = Carbon::create($year, $cutoffMonth, 1)->translatedFormat('F Y');
+
+        $lines = [];
+        $lines[] = "Assalamu'alaikum Bapak/Ibu warga RT 44,";
+        $lines[] = "";
+        $lines[] = "Sekadar informasi tambahan terkait tertib iuran bulanan, berdasarkan data Kalender Iuran per {$periodLabel}:";
+        $lines[] = "";
+        $lines[] = "🔸 Rumah dengan tunggakan *3 bulan atau lebih* untuk sementara *tidak akan dilayani pengambilan sampah* dan *tidak dijamin keamanannya* oleh petugas keamanan, sampai iuran dilunasi.";
+        $lines[] = "🔸 Rumah dengan tunggakan *6 bulan berturut-turut atau lebih*, sebagai langkah lanjutan, *sambungan meteran air akan kami hentikan sementara*.";
+        $lines[] = "";
+
+        if (!empty($threeToFive)) {
+            $lines[] = "*Menunggak 3-5 bulan (" . count($threeToFive) . " rumah):*";
+            $lines[] = implode(', ', $threeToFive);
+            $lines[] = "";
+        }
+
+        if (!empty($sixPlus)) {
+            $lines[] = "*Menunggak ≥6 bulan berturut-turut (" . count($sixPlus) . " rumah):*";
+            $lines[] = implode(', ', $sixPlus);
+            $lines[] = "";
+        }
+
+        if (empty($threeToFive) && empty($sixPlus)) {
+            $lines[] = "Alhamdulillah, saat ini tidak ada rumah dengan tunggakan 3 bulan atau lebih. 🙏";
+            $lines[] = "";
+        }
+
+        $lines[] = "Mohon maaf apabila ada kekeliruan data, Bapak/Ibu dapat mengonfirmasi langsung ke pengurus RT. Kami sangat mengharapkan kesadaran dan kerja sama seluruh warga demi kelancaran dan kenyamanan bersama.";
+        $lines[] = "";
+        $lines[] = "Terima kasih atas perhatian dan kerja samanya. 🙏";
+        $lines[] = "";
+        $lines[] = "Salam,";
+        $lines[] = "*Pengurus RT 44*";
+
+        return response()->json([
+            'message' => implode("\n", $lines),
+            'count_3' => count($threeToFive),
+            'count_6' => count($sixPlus),
+        ]);
+    }
+
     public function kartuPreview(Request $request, House $house)
     {
         if (!in_array(auth()->user()->role, ['admin', 'demo'])) {
@@ -761,7 +864,7 @@ class AdminController extends Controller
         $bulanCount = count($unpaidDues);
 
         $message = "Assalamu'alaikum Bapak/Ibu {$owner->name},\n\n"
-            . "Kami menginformasikan tagihan iuran RT 44 Sepinggan Baru tahun {$year} untuk rumah {$house->blok}/{$house->nomor} yang belum lunas.\n\n"
+            . "Kami menginformasikan tagihan iuran RT 44 tahun {$year} untuk rumah {$house->blok}/{$house->nomor} yang belum lunas.\n\n"
             . "📌 *Rincian Tagihan ({$bulanCount} bulan):*\n"
             . "{$detailText}\n\n"
             . "💰 *Total: {$totalStr}*\n\n"
