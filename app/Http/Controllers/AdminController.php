@@ -550,7 +550,7 @@ class AdminController extends Controller
             $lines[] = "";
         }
 
-        $lines[] = "Mohon maaf apabila ada kekeliruan data, Bapak/Ibu dapat mengonfirmasi langsung ke pengurus RT. Kami sangat mengharapkan kesadaran dan kerja sama seluruh warga demi kelancaran dan kenyamanan bersama.";
+        $lines[] = "Mohon maaf apabila ada kekeliruan data, Bapak/Ibu dapat mengonfirmasi langsung ke pak Dios (Bendahara). Kami sangat mengharapkan kesadaran dan kerja sama seluruh warga demi kelancaran dan kenyamanan bersama.";
         $lines[] = "";
         $lines[] = "Terima kasih atas perhatian dan kerja samanya. 🙏";
         $lines[] = "";
