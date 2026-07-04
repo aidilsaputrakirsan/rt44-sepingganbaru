@@ -34,4 +34,9 @@ class House extends Model
     {
         return $this->hasMany(Due::class);
     }
+
+    public function vehicleCount()
+    {
+        return $this->hasOne(VehicleCount::class);
+    }
 }

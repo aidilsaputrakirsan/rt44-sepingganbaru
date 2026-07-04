@@ -21,6 +21,12 @@ Route::get('/', function () {
 Route::get('/surat-pernyataan/{suratPernyataan}/download', [\App\Http\Controllers\SuratPernyataanController::class, 'publicDownload'])
     ->name('surat-pernyataan.public-download');
 
+// Pendataan Kendaraan warga (form publik tanpa login) — untuk keperluan stiker RT
+Route::get('/pendataan-kendaraan', [\App\Http\Controllers\VehicleCountController::class, 'create'])->name('kendaraan.create');
+Route::post('/pendataan-kendaraan', [\App\Http\Controllers\VehicleCountController::class, 'store'])
+    ->middleware('throttle:20,1')
+    ->name('kendaraan.store');
+
 use App\Http\Controllers\DashboardController;
 
 // ...
@@ -117,6 +123,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/ketua/stunting/import', [\App\Http\Controllers\StuntingController::class, 'import'])->name('ketua.stunting.import');
     Route::post('/ketua/stunting/{idCard}/ukur', [\App\Http\Controllers\StuntingController::class, 'store'])->name('ketua.stunting.store');
     Route::delete('/ketua/stunting/ukur/{measurement}', [\App\Http\Controllers\StuntingController::class, 'destroy'])->name('ketua.stunting.destroy');
+
+    // Rekap Pendataan Kendaraan (hasil isian warga dari form publik) — khusus Ketua
+    Route::get('/ketua/kendaraan', [\App\Http\Controllers\VehicleCountController::class, 'index'])->name('ketua.kendaraan.index');
 });
 
 // Surat Pengantar (ketua, admin, demo)
