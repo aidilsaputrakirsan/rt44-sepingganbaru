@@ -121,7 +121,8 @@ const submit = () => {
                                             v-for="house in filteredHouses"
                                             :key="house.id"
                                             type="button"
-                                            @mousedown.prevent="selectHouse(house)"
+                                            @mousedown.prevent
+                                            @click="selectHouse(house)"
                                             class="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 transition-colors"
                                         >
                                             {{ house.label }}
