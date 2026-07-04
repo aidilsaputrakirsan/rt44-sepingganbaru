@@ -126,6 +126,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Rekap Pendataan Kendaraan (hasil isian warga dari form publik) — khusus Ketua
     Route::get('/ketua/kendaraan', [\App\Http\Controllers\VehicleCountController::class, 'index'])->name('ketua.kendaraan.index');
+    Route::get('/ketua/kendaraan/export-pdf', [\App\Http\Controllers\VehicleCountController::class, 'exportPdf'])->name('ketua.kendaraan.export-pdf');
 });
 
 // Surat Pengantar (ketua, admin, demo)

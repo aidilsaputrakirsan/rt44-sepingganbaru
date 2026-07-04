@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/Components/ui/input';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
-import { Car, Bike, Search, X, Link2, Copy, Check, Home, CheckCircle2 } from 'lucide-vue-next';
+import { Car, Bike, Search, X, Link2, Copy, Check, Home, CheckCircle2, FileDown } from 'lucide-vue-next';
 
 const props = defineProps({
     houses: Array,
@@ -30,6 +30,10 @@ const copyLink = async () => {
     }
 };
 
+const exportPdf = () => {
+    window.open(route('ketua.kendaraan.export-pdf'), '_blank');
+};
+
 const searchQuery = ref('');
 const filteredHouses = computed(() => {
     const q = searchQuery.value.toLowerCase().trim();
@@ -45,14 +49,20 @@ const filteredHouses = computed(() => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div>
-                <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                    <Car class="w-6 h-6 text-amber-600" />
-                    Data Kendaraan Warga
-                </h2>
-                <p class="text-slate-500 mt-1 uppercase text-sm tracking-wider font-medium">
-                    Rekap Pendataan Kendaraan untuk Stiker RT
-                </p>
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                        <Car class="w-6 h-6 text-amber-600" />
+                        Data Kendaraan Warga
+                    </h2>
+                    <p class="text-slate-500 mt-1 uppercase text-sm tracking-wider font-medium">
+                        Rekap Pendataan Kendaraan untuk Stiker RT
+                    </p>
+                </div>
+                <Button variant="outline" size="sm" @click="exportPdf" class="bg-white hover:bg-slate-50 border-amber-200 text-amber-700">
+                    <FileDown class="w-4 h-4 mr-2" />
+                    Export PDF
+                </Button>
             </div>
         </template>
 

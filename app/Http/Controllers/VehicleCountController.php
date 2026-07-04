@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\House;
 use App\Models\VehicleCount;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -68,7 +69,32 @@ class VehicleCountController extends Controller
     {
         $this->guardKetua();
 
-        $houses = House::with(['owner:id,name', 'tenant:id,name', 'vehicleCount'])
+        $houses = $this->rekapHouses();
+
+        return Inertia::render('Ketua/Kendaraan', [
+            'houses' => $houses,
+            'ringkasan' => $this->ringkasan($houses),
+        ]);
+    }
+
+    public function exportPdf()
+    {
+        $this->guardKetua();
+
+        $houses = $this->rekapHouses();
+
+        $pdf = Pdf::loadView('reports.kendaraan', [
+            'houses' => $houses,
+            'ringkasan' => $this->ringkasan($houses),
+            'generatedAt' => now()->translatedFormat('d F Y'),
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->stream('Data_Kendaraan_RT44_' . now()->format('Y-m-d') . '.pdf');
+    }
+
+    private function rekapHouses()
+    {
+        return House::with(['owner:id,name', 'tenant:id,name', 'vehicleCount'])
             ->orderByRaw(self::NATURAL_SORT)
             ->get()
             ->map(fn (House $house) => [
@@ -79,15 +105,15 @@ class VehicleCountController extends Controller
                 'sudah_isi' => (bool) $house->vehicleCount,
                 'diisi_pada' => $house->vehicleCount?->updated_at?->isoFormat('D MMM Y, HH:mm'),
             ]);
+    }
 
-        return Inertia::render('Ketua/Kendaraan', [
-            'houses' => $houses,
-            'ringkasan' => [
-                'total_rumah' => $houses->count(),
-                'sudah_isi' => $houses->where('sudah_isi', true)->count(),
-                'total_mobil' => $houses->sum('jumlah_mobil'),
-                'total_motor' => $houses->sum('jumlah_motor'),
-            ],
-        ]);
+    private function ringkasan($houses): array
+    {
+        return [
+            'total_rumah' => $houses->count(),
+            'sudah_isi' => $houses->where('sudah_isi', true)->count(),
+            'total_mobil' => $houses->sum('jumlah_mobil'),
+            'total_motor' => $houses->sum('jumlah_motor'),
+        ];
     }
 }
