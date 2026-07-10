@@ -102,11 +102,24 @@
             font-size: 12px;
         }
 
+        .section-title.income {
+            background-color: #f0fdf4;
+            color: #15803d;
+            border-left-color: #16a34a;
+        }
+
+        .section-title.expense {
+            background-color: #fef2f2;
+            color: #b91c1c;
+            border-left-color: #dc2626;
+        }
+
         /* === RINGKASAN SALDO === */
         .summary-table {
             width: 100%;
             border-collapse: collapse;
-            border: 1px solid #fde68a;
+            border: 1px solid #fcd34d;
+            background-color: #fffdf5;
             margin-bottom: 20px;
         }
 
@@ -152,10 +165,6 @@
             padding: 8px 10px;
             border-bottom: 1px solid #f1f5f9;
             font-size: 11px;
-        }
-
-        table.detail tr:nth-child(even) {
-            background-color: #fefce8;
         }
 
         .text-right {
@@ -284,7 +293,7 @@
     </table>
 
     <!-- RINCIAN PEMASUKAN -->
-    <div class="section-title">Rincian Pemasukan</div>
+    <div class="section-title income">Rincian Pemasukan</div>
     <table class="detail">
         <thead>
             <tr>
@@ -315,7 +324,7 @@
     </table>
 
     <!-- RINCIAN PENGELUARAN -->
-    <div class="section-title">Rincian Pengeluaran</div>
+    <div class="section-title expense">Rincian Pengeluaran</div>
     <table class="detail">
         <thead>
             <tr>
