@@ -293,7 +293,7 @@ class AdminController extends Controller
 
         $year = $request->input('year', now()->year);
 
-        $houses = House::with('owner')
+        $houses = House::with(['owner', 'tenant'])
             ->orderByRaw("REGEXP_SUBSTR(blok, '^[A-Za-z]+') ASC")
             ->orderByRaw("CAST(REGEXP_SUBSTR(blok, '[0-9]+') AS UNSIGNED) ASC")
             ->orderByRaw('CAST(nomor AS UNSIGNED) ASC')
@@ -312,10 +312,13 @@ class AdminController extends Controller
         $isDemo = auth()->user()->role === 'demo';
         $calendar = $houses->map(function ($house) use ($duesGrouped, $isDemo) {
             $ownerName = $house->owner ? $house->owner->name : '-';
+            $tenantName = $house->tenant ? $house->tenant->name : null;
             $data = [
                 'id' => $house->id,
                 'name' => $house->blok . '/' . $house->nomor,
                 'owner' => $isDemo ? $this->censorName($ownerName) : $ownerName,
+                'tenant' => $tenantName ? ($isDemo ? $this->censorName($tenantName) : $tenantName) : null,
+                'resident_status' => $house->resident_status,
                 'phone' => $house->owner ? $house->owner->phone_number : null,
                 'is_subsidized' => (bool)$house->is_subsidized,
                 'months' => [],
@@ -497,13 +500,16 @@ class AdminController extends Controller
             ->orderBy('nomor')
             ->get();
 
-        $dues = Due::whereYear('period', $year)->get();
+        $dues = Due::with('payments')->whereYear('period', $year)->get();
         $duesGrouped = $dues->keyBy(function ($d) {
             return $d->house_id . '-' . Carbon::parse($d->period)->month;
         });
 
-        // Konsisten dengan exportCalendarPdf: bulan dianggap "belum lunas" jika status due != paid.
-        // Streak dihitung mundur dari bulan cutoff, berhenti begitu ketemu bulan lunas atau tidak ada tagihan.
+        // Konsisten dengan exportCalendarPdf: sebuah bulan hanya dihitung "menunggak" jika
+        // masih ada sisa tagihan (amount - pembayaran terverifikasi > 0). Bulan dengan tagihan 0
+        // (mis. dibebaskan admin) atau sudah lunas dianggap beres, sehingga memutus streak —
+        // sama seperti perhitungan utang di PDF yang memakai max(0, bill - paid).
+        // Streak dihitung mundur dari bulan cutoff, berhenti begitu ketemu bulan beres/tidak ada tagihan.
         $threeToFive = [];
         $sixPlus = [];
 
@@ -512,6 +518,9 @@ class AdminController extends Controller
             for ($m = $cutoffMonth; $m >= 1; $m--) {
                 $due = $duesGrouped->get($house->id . '-' . $m);
                 if (!$due || $due->status === 'paid') break;
+                $paid = $due->payments->where('status', 'verified')->sum('amount_paid');
+                $remaining = max(0, (float) $due->amount - $paid);
+                if ($remaining <= 0) break; // tagihan 0 / terbayar penuh → bukan tunggakan, putus streak
                 $streak++;
             }
 

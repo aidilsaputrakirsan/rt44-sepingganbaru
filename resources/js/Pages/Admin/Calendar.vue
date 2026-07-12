@@ -33,7 +33,9 @@ const filteredCalendar = computed(() => {
  const q = searchQuery.value.toLowerCase().trim();
  if (!q) return props.calendar;
  return props.calendar.filter(row =>
- row.name.toLowerCase().includes(q) || row.owner.toLowerCase().includes(q)
+ row.name.toLowerCase().includes(q) ||
+ row.owner.toLowerCase().includes(q) ||
+ (row.tenant && row.tenant.toLowerCase().includes(q))
  );
 });
 
@@ -47,6 +49,27 @@ const form = useForm({
 });
 
 const displayAmount = ref('');
+
+// --- Penanda input terakhir ---
+// Menyimpan due_id yang paling terakhir di-input agar admin tahu sampai mana
+// terakhir mencatat. Persist di sessionStorage supaya bertahan setelah reload Inertia.
+const LAST_EDITED_KEY = 'calendar_last_edited_due';
+const lastEditedDueId = ref(null);
+try {
+ const stored = sessionStorage.getItem(LAST_EDITED_KEY);
+ if (stored) lastEditedDueId.value = parseInt(stored, 10);
+} catch (e) { /* sessionStorage tidak tersedia — abaikan */ }
+
+const markLastEdited = (dueId) => {
+ if (!dueId) return;
+ lastEditedDueId.value = dueId;
+ try { sessionStorage.setItem(LAST_EDITED_KEY, String(dueId)); } catch (e) { /* abaikan */ }
+};
+
+const clearLastEdited = () => {
+ lastEditedDueId.value = null;
+ try { sessionStorage.removeItem(LAST_EDITED_KEY); } catch (e) { /* abaikan */ }
+};
 
 const openPaymentModal = (dueData, houseName, monthName) => {
  if (!dueData.due_id) return; // No bill exists
@@ -103,8 +126,13 @@ const handleInput = (e) => {
 const submitPayment = () => {
  if (!selectedDue.value || form.amount === '' || form.amount === null) return;
 
+ const editedDueId = selectedDue.value.id;
  form.post(route('admin.payment.store', selectedDue.value.id), {
  onSuccess: () => {
+ // Tandai sel ini sebagai input terakhir hanya jika masih ada nominal terbayar
+ // (input 0 = hapus pembayaran, jadi tidak ditandai).
+ if (Number(form.amount) > 0) markLastEdited(editedDueId);
+ else if (lastEditedDueId.value === editedDueId) clearLastEdited();
  isModalOpen.value = false;
  form.amount = '';
  form.payment_date = today;
@@ -261,8 +289,13 @@ const submitLumpSum = () => {
  if (selectedDueIds.value.length === 0) return;
 
  lumpSumForm.due_ids = selectedDueIds.value;
+ // Sel yang ditandai = bulan terakhir (paling baru) dari yang dipilih
+ const latestPaid = unpaidMonths.value
+ .filter(m => selectedDueIds.value.includes(m.due_id))
+ .reduce((acc, m) => (!acc || m.month > acc.month ? m : acc), null);
  lumpSumForm.post(route('admin.payment.lump-sum', selectedHouse.value.id), {
  onSuccess: () => {
+ if (Number(lumpSumForm.amount) > 0 && latestPaid) markLastEdited(latestPaid.due_id);
  isLumpSumModalOpen.value = false;
  lumpSumForm.amount = '';
  lumpSumForm.payment_date = today;
@@ -426,6 +459,14 @@ const confirmSendReminder = () => {
                             <h3 class="text-lg font-semibold text-slate-800">Matrix Pembayaran</h3>
                             <p v-if="!isDemo" class="text-sm text-muted-foreground">Klik pada kolom bulan untuk mencatat pembayaran manual.</p>
                             <p v-else class="text-sm text-amber-600 font-medium">Mode Demo — semua fitur terlihat, data tidak bisa diubah.</p>
+                            <button
+                                v-if="lastEditedDueId"
+                                @click="clearLastEdited"
+                                class="mt-1 inline-flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800"
+                            >
+                                <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 border border-white shadow"></span>
+                                Sel bertanda cincin ungu = input terakhir Anda · klik untuk hapus tanda
+                            </button>
                         </div>
                         <!-- Search -->
                         <div class="relative w-full sm:max-w-xs">
@@ -465,7 +506,19 @@ const confirmSendReminder = () => {
                                         <div class="flex items-center justify-between gap-1">
                                             <div class="min-w-0">
                                                 <span class="text-xs sm:text-sm">{{ row.name }}</span>
-                                                <div class="text-[10px] text-muted-foreground font-normal truncate max-w-[100px] hidden sm:block">{{ row.owner }}</div>
+                                                <!-- Tanpa kontrak: cukup nama pemilik (seperti semula) -->
+                                                <div v-if="!row.tenant" class="text-[10px] text-muted-foreground font-normal truncate max-w-[120px] hidden sm:block">{{ row.owner }}</div>
+                                                <!-- Ada kontrak: tampilkan pemilik + penghuni kontrak dengan tanda peran -->
+                                                <div v-else class="hidden sm:flex flex-col gap-0.5 mt-0.5">
+                                                    <div class="flex items-center gap-1 min-w-0">
+                                                        <span class="shrink-0 text-[8px] font-bold uppercase leading-none px-1 py-0.5 rounded bg-slate-100 text-slate-500">Pemilik</span>
+                                                        <span class="text-[10px] truncate max-w-[85px]" :class="row.resident_status === 'pemilik' ? 'text-slate-700 font-semibold' : 'text-muted-foreground font-normal'">{{ row.owner }}</span>
+                                                    </div>
+                                                    <div class="flex items-center gap-1 min-w-0">
+                                                        <span class="shrink-0 text-[8px] font-bold uppercase leading-none px-1 py-0.5 rounded bg-amber-100 text-amber-600">Kontrak</span>
+                                                        <span class="text-[10px] truncate max-w-[85px]" :class="row.resident_status === 'kontrak' ? 'text-amber-700 font-semibold' : 'text-muted-foreground font-normal'">{{ row.tenant }}</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div class="flex items-center gap-0.5 sm:gap-1">
                                                 <button
@@ -501,10 +554,15 @@ const confirmSendReminder = () => {
                                     <TableCell v-for="(data, m) in row.months" :key="m" class="p-0.5 sm:p-1">
                                         <div
                                             class="relative h-8 sm:h-10 mx-auto flex flex-col items-center justify-center rounded-md transition-all text-[9px] sm:text-xs px-0.5 sm:px-1"
-                                            :class="[getStatusColor(data), isDemo ? 'cursor-not-allowed' : 'cursor-pointer hover:brightness-95']"
+                                            :class="[
+                                                getStatusColor(data),
+                                                isDemo ? 'cursor-not-allowed' : 'cursor-pointer hover:brightness-95',
+                                                data.due_id && data.due_id === lastEditedDueId ? 'ring-2 ring-indigo-500 ring-offset-1 z-[1]' : ''
+                                            ]"
                                             @click="demoGuard() && openPaymentModal(data, row.name, months[parseInt(m)-1])"
-                                            :title="data.manual_notes ? `Keterangan: ${data.manual_notes}` : (data.bill_amount > 0 ? `Tagihan: ${formatCurrency(data.bill_amount)}` : 'No Bill')"
+                                            :title="data.due_id && data.due_id === lastEditedDueId ? 'Input terakhir Anda' : (data.manual_notes ? `Keterangan: ${data.manual_notes}` : (data.bill_amount > 0 ? `Tagihan: ${formatCurrency(data.bill_amount)}` : 'No Bill'))"
                                         >
+                                            <span v-if="data.due_id && data.due_id === lastEditedDueId" class="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-indigo-500 border border-white shadow" title="Input terakhir Anda"></span>
                                             <template v-if="data.status !== 'none'">
                                                 <span v-if="data.paid_amount > 0" class="font-bold">{{ formatCurrency(data.paid_amount) }}</span>
                                                 <span v-else class="text-muted-foreground">-</span>
