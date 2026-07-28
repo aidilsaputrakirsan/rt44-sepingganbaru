@@ -10,11 +10,11 @@ use Inertia\Inertia;
 class InfoController extends Controller
 {
     /**
-     * Hanya admin & ketua yang boleh upload/hapus.
+     * Hanya admin, ketua & PKK yang boleh upload/hapus.
      */
     private function guardUpload(): void
     {
-        if (!in_array(auth()->user()?->role, ['admin', 'ketua'])) {
+        if (!in_array(auth()->user()?->role, ['admin', 'ketua', 'pkk'])) {
             abort(403, 'Tidak punya izin untuk mengelola Papan Informasi.');
         }
     }
@@ -36,7 +36,7 @@ class InfoController extends Controller
                 'created_at' => $i->created_at?->translatedFormat('d M Y H:i'),
             ]);
 
-        $canManage = in_array(auth()->user()?->role, ['admin', 'ketua']);
+        $canManage = in_array(auth()->user()?->role, ['admin', 'ketua', 'pkk']);
 
         return Inertia::render('Info/Index', [
             'items' => $items,

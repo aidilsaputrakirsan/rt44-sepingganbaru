@@ -26,8 +26,8 @@ class DemografiController extends Controller
     public function index()
     {
         $user = auth()->user();
-        if ($user->role !== 'ketua') {
-            abort(403, 'Halaman ini hanya untuk Ketua RT.');
+        if (!in_array($user->role, ['ketua', 'pkk'])) {
+            abort(403, 'Halaman ini hanya untuk Ketua RT & Ibu PKK.');
         }
 
         $today = Carbon::today();

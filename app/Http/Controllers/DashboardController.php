@@ -18,6 +18,10 @@ class DashboardController extends Controller
         if (in_array($user->role, ['admin', 'demo'])) {
             return redirect()->route('admin.dashboard');
         }
+        // Ibu PKK tidak punya dashboard sendiri — langsung ke Demografi.
+        if ($user->role === 'pkk') {
+            return redirect()->route('ketua.demografi.index');
+        }
 
         // Warga bisa login sebagai pemilik (owner_id) atau kontrak (tenant_id)
         $ownedHouses = $user->houses()->with(['dues' => fn($q) => $q->orderBy('period', 'desc')])->get();

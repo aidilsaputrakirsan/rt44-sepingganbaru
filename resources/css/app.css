@@ -39,4 +39,50 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Scrollbar global — tipis & netral, menggantikan scrollbar default OS. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(215 12% 75%) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(215 12% 78%);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(215 12% 60%);
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+@layer components {
+  /* Scrollbar untuk area gelap (sidebar) — thumb terang transparan. */
+  .scrollbar-dark {
+    scrollbar-color: hsl(0 0% 100% / 0.18) transparent;
+  }
+  .scrollbar-dark::-webkit-scrollbar-thumb {
+    background-color: hsl(0 0% 100% / 0.18);
+  }
+  .scrollbar-dark::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(0 0% 100% / 0.35);
+  }
+
+  /* Scrollbar yang hanya muncul saat hover/scroll pada kontainernya. */
+  .scrollbar-subtle::-webkit-scrollbar-thumb {
+    background-color: transparent;
+  }
+  .scrollbar-subtle:hover::-webkit-scrollbar-thumb {
+    background-color: hsl(215 12% 78%);
+  }
 }

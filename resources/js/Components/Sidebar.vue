@@ -14,6 +14,7 @@ const user = usePage().props.auth.user;
 
 const isAdmin = computed(() => user.role === 'admin' || user.role === 'demo');
 const isKetua = computed(() => user.role === 'ketua');
+const isPkk = computed(() => user.role === 'pkk');
 const isDemo = computed(() => user.role === 'demo');
 const isSuperAdmin = computed(() => user.role === 'superadmin');
 
@@ -21,8 +22,16 @@ const roleLabel = computed(() => {
     if (user.role === 'superadmin') return 'Super Admin';
     if (user.role === 'admin') return 'Bendahara';
     if (user.role === 'ketua') return 'Ketua';
+    if (user.role === 'pkk') return 'Ibu PKK';
     if (user.role === 'demo') return 'Demo';
     return null;
+});
+
+const roleBadgeClass = computed(() => {
+    if (user.role === 'admin') return 'bg-emerald-500/20 text-emerald-300';
+    if (user.role === 'ketua') return 'bg-blue-500/20 text-blue-300';
+    if (user.role === 'pkk') return 'bg-pink-500/20 text-pink-300';
+    return 'bg-amber-500/20 text-amber-300';
 });
 
 // Menu dikelompokkan per section. `label: null` = grup tanpa judul (mis. Dashboard).
@@ -72,6 +81,17 @@ const menuGroups = computed(() => {
                 { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
             ]},
         ];
+    } else if (isPkk.value) {
+        // Ibu PKK: hanya 3 menu (Demografi, Stunting Balita, Papan Informasi).
+        return [
+            { label: 'Kependudukan', items: [
+                { name: 'Demografi', icon: BarChart3, route: 'ketua.demografi.index' },
+                { name: 'Stunting Balita', icon: Baby, route: 'ketua.stunting.index' },
+            ]},
+            { label: 'Lainnya', items: [
+                { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
+            ]},
+        ];
     } else {
         return [
             { label: null, items: [
@@ -103,7 +123,7 @@ const menuGroups = computed(() => {
             </div>
         </div>
 
-        <nav class="flex-1 px-3 py-5 space-y-4 overflow-y-auto">
+        <nav class="flex-1 px-3 py-5 space-y-4 overflow-y-auto scrollbar-dark">
             <div v-for="(group, gi) in menuGroups" :key="gi" class="space-y-1">
                 <p
                     v-if="group.label"
@@ -139,7 +159,7 @@ const menuGroups = computed(() => {
                     <div class="flex items-center gap-1.5">
                         <p class="text-sm font-medium text-white truncate">{{ user.name }}</p>
                         <span v-if="roleLabel" class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                              :class="user.role === 'admin' ? 'bg-emerald-500/20 text-emerald-300' : (user.role === 'ketua' ? 'bg-blue-500/20 text-blue-300' : 'bg-amber-500/20 text-amber-300')">
+                              :class="roleBadgeClass">
                             {{ roleLabel }}
                         </span>
                     </div>

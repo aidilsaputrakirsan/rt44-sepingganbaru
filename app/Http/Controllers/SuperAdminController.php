@@ -36,8 +36,8 @@ class SuperAdminController extends Controller
     {
         $this->guard();
 
-        $accounts = User::whereIn('role', ['admin', 'ketua'])
-            ->orderByRaw("FIELD(role, 'admin', 'ketua')")
+        $accounts = User::whereIn('role', ['admin', 'ketua', 'pkk'])
+            ->orderByRaw("FIELD(role, 'admin', 'ketua', 'pkk')")
             ->orderBy('name')
             ->get()
             ->map(fn (User $u) => [
@@ -45,7 +45,11 @@ class SuperAdminController extends Controller
                 'name'            => $u->name,
                 'email'           => $u->email,
                 'role'            => $u->role,
-                'role_label'      => $u->role === 'admin' ? 'Bendahara' : 'Ketua',
+                'role_label'      => match ($u->role) {
+                    'admin' => 'Bendahara',
+                    'pkk'   => 'Ibu PKK',
+                    default => 'Ketua',
+                },
                 'phone_number'    => $u->phone_number,
                 // password yang berlaku, sudah didekripsi. null = belum pernah di-set lewat panel ini.
                 'password_plain'  => $this->revealPlain($u->password_plain),
@@ -61,8 +65,8 @@ class SuperAdminController extends Controller
     {
         $this->guard();
 
-        if (!in_array($user->role, ['admin', 'ketua'])) {
-            abort(403, 'Hanya akun admin/ketua yang dapat dikelola di sini.');
+        if (!in_array($user->role, ['admin', 'ketua', 'pkk'])) {
+            abort(403, 'Hanya akun admin/ketua/PKK yang dapat dikelola di sini.');
         }
 
         $validated = $request->validate([
@@ -82,8 +86,8 @@ class SuperAdminController extends Controller
     {
         $this->guard();
 
-        if (!in_array($user->role, ['admin', 'ketua'])) {
-            abort(403, 'Hanya akun admin/ketua yang dapat dikelola di sini.');
+        if (!in_array($user->role, ['admin', 'ketua', 'pkk'])) {
+            abort(403, 'Hanya akun admin/ketua/PKK yang dapat dikelola di sini.');
         }
 
         $validated = $request->validate([

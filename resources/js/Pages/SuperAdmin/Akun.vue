@@ -80,9 +80,11 @@ const submitProf = () => {
     });
 };
 
-const roleBadge = (role) => role === 'admin'
-    ? { label: 'Bendahara', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
-    : { label: 'Ketua', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
+const roleBadge = (role) => {
+    if (role === 'admin') return { label: 'Bendahara', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+    if (role === 'pkk') return { label: 'Ibu PKK', cls: 'bg-pink-50 text-pink-700 border-pink-200' };
+    return { label: 'Ketua', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
+};
 </script>
 
 <template>
@@ -113,7 +115,7 @@ const roleBadge = (role) => role === 'admin'
             </div>
 
             <div v-if="accounts.length === 0" class="text-center py-16 bg-white rounded-lg border border-slate-200 text-sm text-slate-500">
-                Belum ada akun admin/ketua.
+                Belum ada akun admin/ketua/PKK.
             </div>
 
             <div v-else class="space-y-3">

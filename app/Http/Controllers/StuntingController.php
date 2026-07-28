@@ -18,8 +18,8 @@ class StuntingController extends Controller
 
     private function authorizeKetua(): void
     {
-        if (auth()->user()->role !== 'ketua') {
-            abort(403, 'Halaman ini hanya untuk Ketua RT.');
+        if (!in_array(auth()->user()->role, ['ketua', 'pkk'])) {
+            abort(403, 'Halaman ini hanya untuk Ketua RT & Ibu PKK.');
         }
     }
 
