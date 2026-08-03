@@ -68,6 +68,7 @@ const menuGroups = computed(() => {
             { label: 'Kependudukan', items: [
                 { name: 'Data Warga', icon: UserCircle, route: 'admin.warga.index' },
                 { name: 'Demografi', icon: BarChart3, route: 'ketua.demografi.index' },
+                { name: 'Daftar Ibu', icon: Users, route: 'ketua.daftar-ibu.index' },
                 { name: 'Stunting Balita', icon: Baby, route: 'ketua.stunting.index' },
                 { name: 'Data Kendaraan', icon: Car, route: 'ketua.kendaraan.index' },
             ]},
@@ -82,10 +83,11 @@ const menuGroups = computed(() => {
             ]},
         ];
     } else if (isPkk.value) {
-        // Ibu PKK: hanya 3 menu (Demografi, Stunting Balita, Papan Informasi).
+        // Ibu PKK: Demografi, Daftar Ibu, Stunting Balita, Papan Informasi.
         return [
             { label: 'Kependudukan', items: [
                 { name: 'Demografi', icon: BarChart3, route: 'ketua.demografi.index' },
+                { name: 'Daftar Ibu', icon: Users, route: 'ketua.daftar-ibu.index' },
                 { name: 'Stunting Balita', icon: Baby, route: 'ketua.stunting.index' },
             ]},
             { label: 'Lainnya', items: [

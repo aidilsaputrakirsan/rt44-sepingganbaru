@@ -124,6 +124,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/ketua/stunting/{idCard}/ukur', [\App\Http\Controllers\StuntingController::class, 'store'])->name('ketua.stunting.store');
     Route::delete('/ketua/stunting/ukur/{measurement}', [\App\Http\Controllers\StuntingController::class, 'destroy'])->name('ketua.stunting.destroy');
 
+    // Daftar Ibu per Rumah (rekap PKK) — Ketua & PKK
+    Route::get('/ketua/daftar-ibu', [\App\Http\Controllers\DaftarIbuController::class, 'index'])->name('ketua.daftar-ibu.index');
+    Route::get('/ketua/daftar-ibu/export-excel', [\App\Http\Controllers\DaftarIbuController::class, 'exportExcel'])->name('ketua.daftar-ibu.export-excel');
+
     // Rekap Pendataan Kendaraan (hasil isian warga dari form publik) — khusus Ketua
     Route::get('/ketua/kendaraan', [\App\Http\Controllers\VehicleCountController::class, 'index'])->name('ketua.kendaraan.index');
     Route::get('/ketua/kendaraan/export-pdf', [\App\Http\Controllers\VehicleCountController::class, 'exportPdf'])->name('ketua.kendaraan.export-pdf');
