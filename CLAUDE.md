@@ -82,6 +82,11 @@ MonthlyBalance — saldo awal per bulan (standalone)
 | POST /admin/report/initial-balance | FinancialReportController@updateInitialBalance | Set saldo awal |
 | GET /admin/report/export-pdf | FinancialReportController@exportPdf | Export PDF |
 
+### Peta Kota (auth, semua role)
+| Route | Controller Method | Fungsi |
+|-------|------------------|--------|
+| GET /peta-kota | PetaKotaController@index | Peta CCTV live & Wifi Gratis dari eManuntung |
+
 ### Warga Routes (auth)
 | Route | Controller Method | Fungsi |
 |-------|------------------|--------|
@@ -104,6 +109,7 @@ resources/js/Pages/
 │   ├── Warga/Index.vue            # CRUD warga + import CSV + search
 │   ├── Expenses/Index.vue         # Kelola pengeluaran
 │   └── FinancialReport/Index.vue  # Laporan keuangan + PDF export
+├── PetaKota/Index.vue             # Peta CCTV live (HLS) & Wifi Gratis kota — Leaflet + OSM
 ├── Warga/Calendar.vue             # Kalender personal warga
 ├── Auth/                          # Login, Register, dll (Breeze)
 └── Profile/                       # Edit profil (Breeze)
@@ -119,6 +125,15 @@ resources/js/Pages/
 
 ### DuesService (`app/Services/DuesService.php`)
 - `calculate(House): int` — hitung nominal tagihan per aturan Pasal 5
+
+### EManuntungService (`app/Services/EManuntungService.php`)
+- `points(lat?, lng?, radiusKm?): array` — ambil titik CCTV & Wifi Gratis dari API publik
+  eManuntung Pemkot Balikpapan (`GET https://emanuntung.balikpapan.go.id/api/maps/nearby`)
+- **Tanpa autentikasi** — endpoint yang sama dipakai PWA resminya
+- Server **mengabaikan** parameter `radius` miliknya sendiri (selalu balas ~782 titik s.d. ~19 km),
+  jadi penyaringan jarak dilakukan di PHP pakai kolom `distance` (satuan km)
+- CCTV = item dengan `status: "CCTV"`; `keterangan` berisi URL HLS `.m3u8` siap putar
+- Respons di-cache 30 menit (`Cache::remember`), config di `config/services.php` → `emanuntung`
 
 ### FonnteService (`app/Services/FonnteService.php`)
 - `send(target, message): array` — kirim WA via Fonnte API
@@ -158,3 +173,5 @@ resources/js/Pages/
 - **Bulk update tagihan** mengubah nominal semua dues bulan ini sekaligus berdasarkan status_huni (berpenghuni/kosong)
 - **Lump sum payment** dari Calendar: modal per-house menampilkan rincian semua bulan belum lunas, alokasi otomatis dari bulan terlama. Hapus manual payments lama lalu re-create saat submit
 - **Laporan keuangan** mengelompokkan pemasukan berdasarkan `payment_date` (tanggal pembayaran aktual), bukan `due.period`
+- **Peta Kota** pakai **Leaflet + OpenStreetMap** (gratis, tanpa API key — PWA aslinya pakai Google Maps yang butuh key berbayar). Marker pakai `L.divIcon` agar tidak bergantung file gambar bawaan Leaflet yang rusak saat di-bundle Vite
+- **Live stream CCTV** format HLS: native di Safari/iOS, browser lain pakai `hls.js` yang di-`import()` dinamis supaya tidak membebani bundle utama (~592 kB)

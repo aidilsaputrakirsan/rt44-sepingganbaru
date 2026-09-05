@@ -47,6 +47,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/profil/ktp/{idCard}', [\App\Http\Controllers\ResidentProfileController::class, 'deleteKtp'])->name('profil.ktp.delete');
 });
 
+// Peta Kota: CCTV live & Wifi Gratis (data publik eManuntung Pemkot Balikpapan).
+// Semua role yang sudah login bisa lihat.
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/peta-kota', [\App\Http\Controllers\PetaKotaController::class, 'index'])->name('peta-kota.index');
+});
+
 // Papan Informasi (semua role bisa lihat, admin & ketua bisa upload/hapus)
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/info', [\App\Http\Controllers\InfoController::class, 'index'])->name('info.index');

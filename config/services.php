@@ -38,4 +38,14 @@ return [
         'token' => env('FONNTE_TOKEN'),
     ],
 
+    // Peta layanan kota (CCTV & Wifi Gratis) dari API publik eManuntung Pemkot
+    // Balikpapan. Tanpa token — koordinat acuan default = tengah RT-44.
+    'emanuntung' => [
+        'lat' => env('EMANUNTUNG_LAT', -1.2635),
+        'lng' => env('EMANUNTUNG_LNG', 116.8942),
+        // Server mengabaikan parameter radius-nya sendiri (selalu balas ~19 km),
+        // jadi penyaringan jarak dilakukan di EManuntungService. Satuan: kilometer.
+        'radius_km' => env('EMANUNTUNG_RADIUS_KM', 10),
+    ],
+
 ];

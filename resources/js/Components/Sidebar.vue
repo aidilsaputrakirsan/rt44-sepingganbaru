@@ -1,7 +1,7 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart, IdCard, Newspaper, FileText, FileSignature, BookText, BarChart3, ShieldCheck, KeyRound, Baby, ClipboardList, Car } from 'lucide-vue-next';
+import { LayoutDashboard, Users, Receipt, Calendar, Home, LogOut, UserCircle, PieChart, IdCard, Newspaper, FileText, FileSignature, BookText, BarChart3, ShieldCheck, KeyRound, Baby, ClipboardList, Car, Video } from 'lucide-vue-next';
 
 const props = defineProps({
     mobile: {
@@ -58,6 +58,7 @@ const menuGroups = computed(() => {
             ]},
             { label: 'Lainnya', items: [
                 { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
+                { name: 'CCTV & Wifi Kota', icon: Video, route: 'peta-kota.index' },
             ]},
         ];
     } else if (isKetua.value) {
@@ -80,6 +81,7 @@ const menuGroups = computed(() => {
             ]},
             { label: 'Lainnya', items: [
                 { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
+                { name: 'CCTV & Wifi Kota', icon: Video, route: 'peta-kota.index' },
             ]},
         ];
     } else if (isPkk.value) {
@@ -92,6 +94,7 @@ const menuGroups = computed(() => {
             ]},
             { label: 'Lainnya', items: [
                 { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
+                { name: 'CCTV & Wifi Kota', icon: Video, route: 'peta-kota.index' },
             ]},
         ];
     } else {
@@ -100,6 +103,7 @@ const menuGroups = computed(() => {
                 { name: 'Dashboard', icon: Home, route: 'dashboard' },
                 { name: 'Kalender Iuran', icon: Calendar, route: 'dashboard.calendar' },
                 { name: 'Papan Informasi', icon: Newspaper, route: 'info.index' },
+                { name: 'CCTV & Wifi Kota', icon: Video, route: 'peta-kota.index' },
                 // Profil Warga di-hide dari sidebar warga — admin yang manage CRUD via Data Warga.
                 // Route tetap aktif (profil.show) untuk akses langsung jika dibutuhkan.
             ]},
