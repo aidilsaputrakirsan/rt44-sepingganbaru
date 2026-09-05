@@ -174,4 +174,7 @@ resources/js/Pages/
 - **Lump sum payment** dari Calendar: modal per-house menampilkan rincian semua bulan belum lunas, alokasi otomatis dari bulan terlama. Hapus manual payments lama lalu re-create saat submit
 - **Laporan keuangan** mengelompokkan pemasukan berdasarkan `payment_date` (tanggal pembayaran aktual), bukan `due.period`
 - **Peta Kota** pakai **Leaflet + OpenStreetMap** (gratis, tanpa API key — PWA aslinya pakai Google Maps yang butuh key berbayar). Marker pakai `L.divIcon` agar tidak bergantung file gambar bawaan Leaflet yang rusak saat di-bundle Vite
-- **Live stream CCTV** format HLS: native di Safari/iOS, browser lain pakai `hls.js` yang di-`import()` dinamis supaya tidak membebani bundle utama (~592 kB)
+- Layer marker wajib `L.featureGroup()` (**bukan** `L.layerGroup()`) karena hanya featureGroup yang punya `getBounds()` untuk auto-zoom
+- **Live stream CCTV** format HLS: native di Safari/iOS, browser lain pakai `hls.js` yang di-`import()` dinamis supaya tidak membebani bundle utama
+- Versi `hls.js` **dikunci persis** di `1.5.17` (tanpa caret) — jangan naikkan tanpa diuji manual pada stream CCTV Balikpapan
+- Player CCTV (`Components/CctvPlayer.vue`) di-render **inline**, sengaja tidak di dalam `Dialog`: `DialogContent` memakai `DialogPortal` (Teleport ke `<body>`) yang memindahkan elemen `<video>` di DOM setelah mount dan bisa mereset pipeline media-nya

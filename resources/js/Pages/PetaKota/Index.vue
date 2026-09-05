@@ -1,14 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import {
-    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
-} from '@/Components/ui/dialog';
+import CctvPlayer from '@/Components/CctvPlayer.vue';
 import { Input } from '@/Components/ui/input';
 import { Button } from '@/Components/ui/button';
 import {
-    Video, Wifi, Search, X, MapPin, AlertTriangle, Loader2, Navigation, ExternalLink
+    Video, Wifi, Search, X, MapPin, AlertTriangle, Navigation, ExternalLink, MousePointerClick
 } from 'lucide-vue-next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -18,7 +16,6 @@ const props = defineProps({
     wifi: Array,
     error: String,
     center: Object,
-    radiusKm: Number,
 });
 
 // ── Tab & pencarian ─────────────────────────────────────
@@ -37,6 +34,17 @@ const filteredList = computed(() => {
     );
 });
 
+// ── Detail terpilih ─────────────────────────────────────
+const selected = ref(null);
+const detailEl = ref(null);
+
+const openDetail = (p) => {
+    selected.value = p;
+    nextTick(() => detailEl.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+};
+
+const gmapsUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`;
+
 // ── Peta (Leaflet + OpenStreetMap, tanpa API key) ───────
 let map = null;
 let markerLayer = null;
@@ -45,14 +53,14 @@ const mapEl = ref(null);
 
 // Marker pakai divIcon supaya tidak bergantung file gambar bawaan Leaflet
 // (path-nya rusak kalau di-bundle Vite).
-const makeIcon = (type) => {
+const makeIcon = (type, isSelected = false) => {
     const color = type === 'cctv' ? '#dc2626' : '#0ea5e9';
     const glyph = type === 'cctv'
         ? '<path d="M2 6h11v6H2z" fill="#fff"/><path d="M13 8l4-2v6l-4-2z" fill="#fff"/>'
         : '<path d="M10 14.5a1.5 1.5 0 100 .01M6 11a6 6 0 018 0M3.5 8a10 10 0 0113 0" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round"/>';
 
     return L.divIcon({
-        className: 'peta-marker',
+        className: `peta-marker${isSelected ? ' is-selected' : ''}`,
         html: `<span style="background:${color}"><svg viewBox="0 0 20 20" width="15" height="15">${glyph}</svg></span>`,
         iconSize: [28, 28],
         iconAnchor: [14, 14],
@@ -60,18 +68,24 @@ const makeIcon = (type) => {
     });
 };
 
-const renderMarkers = () => {
+// `fit` sengaja opsional: saat hanya menandai marker terpilih, peta tidak
+// boleh ikut zoom-out ke seluruh sebaran.
+const renderMarkers = (fit = true) => {
     if (!map) return;
     markerLayer.clearLayers();
     markerById.clear();
 
     filteredList.value.forEach((p) => {
-        const marker = L.marker([p.lat, p.lng], { icon: makeIcon(activeTab.value) })
+        const marker = L.marker([p.lat, p.lng], {
+            icon: makeIcon(activeTab.value, selected.value?.id === p.id),
+        })
             .bindTooltip(p.nama, { direction: 'top', offset: [0, -12] })
             .on('click', () => openDetail(p));
         markerLayer.addLayer(marker);
         markerById.set(p.id, marker);
     });
+
+    if (!fit) return;
 
     const bounds = markerLayer.getBounds();
     if (bounds.isValid()) {
@@ -93,130 +107,29 @@ onMounted(() => {
         radius: 7, color: '#16a34a', fillColor: '#16a34a', fillOpacity: 0.9, weight: 2,
     }).addTo(map).bindTooltip('RT-44 Sepinggan Baru', { direction: 'top' });
 
-    markerLayer = L.layerGroup().addTo(map);
+    // featureGroup, bukan layerGroup: hanya featureGroup yang punya getBounds().
+    markerLayer = L.featureGroup().addTo(map);
     renderMarkers();
 });
 
 onBeforeUnmount(() => {
-    stopStream();
     map?.remove();
     map = null;
 });
 
-watch([activeTab, filteredList], () => renderMarkers());
+// Ganti tab / hasil pencarian → susun ulang marker dan sesuaikan zoom.
+watch([activeTab, filteredList], () => {
+    selected.value = null;
+    renderMarkers();
+});
+
+// Ganti pilihan → cukup perbarui tampilan marker, jangan ubah zoom.
+watch(selected, () => renderMarkers(false));
 
 const focusPoint = (p) => {
     map?.setView([p.lat, p.lng], 17, { animate: true });
-    markerById.get(p.id)?.openTooltip();
     openDetail(p);
 };
-
-// ── Detail & pemutar CCTV ───────────────────────────────
-const isDetailOpen = ref(false);
-const selected = ref(null);
-const videoEl = ref(null);
-const streamError = ref(null);
-const isLoadingStream = ref(false);
-let hls = null;
-let startupTimer = null;
-
-const openDetail = (p) => {
-    selected.value = p;
-    isDetailOpen.value = true;
-    // Pemutaran dimulai lewat watcher videoEl di bawah — isi DialogContent baru
-    // di-mount setelah dialog terbuka, jadi elemen <video> belum ada di sini.
-    isLoadingStream.value = !!p.stream_url;
-};
-
-// Menunggu elemen <video> benar-benar ter-mount sebelum memasang stream.
-// `selected` ikut dipantau agar ganti kamera saat dialog sudah terbuka tetap
-// memuat ulang stream (elemen <video>-nya sendiri tidak berubah).
-watch([videoEl, selected], ([el, point]) => {
-    if (el && point?.stream_url) {
-        playStream(point.stream_url);
-    }
-});
-
-const stopStream = () => {
-    if (startupTimer) {
-        clearTimeout(startupTimer);
-        startupTimer = null;
-    }
-    if (hls) {
-        hls.destroy();
-        hls = null;
-    }
-    if (videoEl.value) {
-        videoEl.value.pause();
-        videoEl.value.removeAttribute('src');
-        videoEl.value.load();
-    }
-    isLoadingStream.value = false;
-};
-
-const playStream = async (url) => {
-    stopStream();
-    streamError.value = null;
-    isLoadingStream.value = true;
-
-    const video = videoEl.value;
-    if (!video) return;
-
-    // Jaring pengaman: apa pun penyebabnya, overlay "memuat" hilang begitu
-    // frame pertama benar-benar tampil.
-    video.addEventListener('playing', () => { isLoadingStream.value = false; }, { once: true });
-
-    // Jangan biarkan spinner menggantung selamanya kalau kamera tidak merespons.
-    startupTimer = setTimeout(() => {
-        if (!isLoadingStream.value) return;
-        isLoadingStream.value = false;
-        streamError.value = 'Stream tidak merespons dalam 20 detik. Kamera kemungkinan sedang mati.';
-        stopStream();
-    }, 20000);
-
-    // Safari/iOS memutar HLS secara native; browser lain butuh hls.js.
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = url;
-        video.play().catch(() => {});
-        return;
-    }
-
-    const { default: Hls } = await import('hls.js');
-
-    if (!Hls.isSupported()) {
-        streamError.value = 'Browser ini tidak mendukung pemutaran live stream (HLS).';
-        isLoadingStream.value = false;
-        return;
-    }
-
-    // Stream CCTV ini live dengan segmen 2 detik dan window pendek, jadi mulai
-    // dari ujung terbaru dan jangan menumpuk buffer besar.
-    hls = new Hls({
-        liveSyncDurationCount: 2,
-        backBufferLength: 30,
-        maxBufferLength: 10,
-    });
-    hls.loadSource(url);
-    hls.attachMedia(video);
-    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(() => {});
-    });
-    hls.on(Hls.Events.ERROR, (_e, data) => {
-        if (!data.fatal) return;
-        isLoadingStream.value = false;
-        streamError.value = 'Stream CCTV tidak dapat dimuat. Kamera mungkin sedang mati atau server Pemkot sedang gangguan.';
-        stopStream();
-    });
-};
-
-watch(isDetailOpen, (open) => {
-    if (!open) {
-        stopStream();
-        streamError.value = null;
-    }
-});
-
-const gmapsUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`;
 </script>
 
 <template>
@@ -224,25 +137,18 @@ const gmapsUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${p.lat
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">Peta Kota — CCTV & Wifi Gratis</h2>
+            <h2 class="text-xl font-semibold leading-tight text-gray-800">Peta Kota — CCTV &amp; Wifi Gratis</h2>
         </template>
 
         <div class="py-6">
             <div class="mx-auto max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
-                <p class="text-sm text-gray-500">
-                    Data langsung dari layanan publik
-                    <a href="https://pwa-emanuntung.balikpapan.go.id" target="_blank" rel="noopener"
-                       class="font-medium text-emerald-600 hover:underline">eManuntung</a>
-                    Pemerintah Kota Balikpapan, dalam radius {{ radiusKm }} km dari RT-44.
-                </p>
-
                 <div v-if="error"
                      class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                     <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0" />
                     <span>{{ error }}</span>
                 </div>
 
-                <!-- Tab kategori -->
+                <!-- Tab kategori + pencarian -->
                 <div class="flex flex-wrap items-center gap-2">
                     <button
                         type="button"
@@ -277,31 +183,105 @@ const gmapsUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${p.lat
                     </div>
                 </div>
 
-                <div class="grid gap-4 lg:grid-cols-3">
-                    <!-- Peta -->
-                    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:col-span-2">
-                        <div ref="mapEl" class="h-[420px] w-full lg:h-[560px]"></div>
+                <div class="grid items-start gap-4 lg:grid-cols-3">
+                    <!-- Kolom kiri: detail terpilih (kalau ada) lalu peta -->
+                    <div class="space-y-4 lg:col-span-2">
+                        <!-- Player sengaja INLINE, bukan di dalam Dialog: Dialog memakai
+                             DialogPortal (Teleport ke <body>) yang memindahkan elemen
+                             <video> di DOM setelah mount. -->
+                        <div v-if="selected" ref="detailEl"
+                             class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                            <div class="flex items-start gap-3 border-b border-gray-100 px-4 py-3">
+                                <span class="mt-0.5 rounded-md p-1.5"
+                                      :class="selected.stream_url ? 'bg-red-50 text-red-600' : 'bg-sky-50 text-sky-600'">
+                                    <Video v-if="selected.stream_url" class="h-4 w-4" />
+                                    <Wifi v-else class="h-4 w-4" />
+                                </span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="truncate text-base font-semibold text-gray-800">{{ selected.nama }}</h3>
+                                        <span v-if="selected.stream_url"
+                                              class="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-red-600">
+                                            <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500"></span>
+                                            Live
+                                        </span>
+                                    </div>
+                                    <p class="truncate text-sm text-gray-500">
+                                        {{ selected.kelurahan }}<template v-if="selected.kecamatan">, {{ selected.kecamatan }}</template>
+                                        &middot; {{ selected.distance }} km dari RT-44
+                                    </p>
+                                </div>
+                                <button type="button" @click="selected = null" title="Tutup"
+                                        class="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
+                                    <X class="h-5 w-5" />
+                                </button>
+                            </div>
+
+                            <div class="p-4">
+                                <CctvPlayer v-if="selected.stream_url" :key="selected.id" :src="selected.stream_url" />
+
+                                <div v-else class="rounded-lg border border-sky-100 bg-sky-50 p-4 text-sm text-sky-900">
+                                    <div class="flex items-start gap-2">
+                                        <MapPin class="mt-0.5 h-4 w-4 shrink-0" />
+                                        <div>
+                                            <p class="font-medium">Titik Wifi Gratis Pemkot Balikpapan</p>
+                                            <p class="mt-1 text-sky-800">{{ selected.alamat || 'Alamat tidak tersedia.' }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 bg-gray-50/60 px-4 py-2.5">
+                                <span class="font-mono text-xs text-gray-400">
+                                    {{ selected.lat?.toFixed(5) }}, {{ selected.lng?.toFixed(5) }}
+                                </span>
+                                <Button as="a" :href="gmapsUrl(selected)" target="_blank" rel="noopener"
+                                        variant="outline" size="sm" class="gap-1.5">
+                                    <Navigation class="h-3.5 w-3.5" />
+                                    Buka di Google Maps
+                                    <ExternalLink class="h-3 w-3" />
+                                </Button>
+                            </div>
+                        </div>
+
+                        <!-- Ajakan saat belum ada yang dipilih -->
+                        <div v-else
+                             class="flex items-center gap-2 rounded-xl border border-dashed border-gray-300 bg-white px-4 py-3 text-sm text-gray-500">
+                            <MousePointerClick class="h-4 w-4 shrink-0 text-gray-400" />
+                            <span v-if="activeTab === 'cctv'">Klik marker atau daftar di samping untuk menonton siaran CCTV.</span>
+                            <span v-else>Klik marker atau daftar di samping untuk melihat detail titik wifi.</span>
+                        </div>
+
+                        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                            <div ref="mapEl" class="h-[380px] w-full lg:h-[480px]"></div>
+                        </div>
                     </div>
 
-                    <!-- Daftar lokasi -->
-                    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+                    <!-- Kolom kanan: daftar lokasi -->
+                    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:sticky lg:top-4">
                         <div class="border-b border-gray-100 px-4 py-3 text-sm font-semibold text-gray-700">
                             {{ filteredList.length }} lokasi ditemukan
                         </div>
-                        <div class="max-h-[420px] divide-y divide-gray-100 overflow-y-auto lg:max-h-[510px]">
+                        <div class="max-h-[420px] divide-y divide-gray-100 overflow-y-auto lg:max-h-[640px]">
                             <button
                                 v-for="p in filteredList"
                                 :key="p.id"
                                 type="button"
                                 @click="focusPoint(p)"
-                                class="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-gray-50">
+                                class="flex w-full items-start gap-3 px-4 py-3 text-left transition"
+                                :class="selected?.id === p.id
+                                    ? (activeTab === 'cctv' ? 'bg-red-50/70' : 'bg-sky-50/70')
+                                    : 'hover:bg-gray-50'">
                                 <span class="mt-0.5 rounded-md p-1.5"
                                       :class="activeTab === 'cctv' ? 'bg-red-50 text-red-600' : 'bg-sky-50 text-sky-600'">
                                     <Video v-if="activeTab === 'cctv'" class="h-4 w-4" />
                                     <Wifi v-else class="h-4 w-4" />
                                 </span>
                                 <span class="min-w-0 flex-1">
-                                    <span class="block truncate text-sm font-medium text-gray-800">{{ p.nama }}</span>
+                                    <span class="block truncate text-sm font-medium"
+                                          :class="selected?.id === p.id ? 'text-gray-900' : 'text-gray-800'">
+                                        {{ p.nama }}
+                                    </span>
                                     <span class="block truncate text-xs text-gray-500">
                                         {{ p.kelurahan || p.kecamatan }} &middot; {{ p.distance }} km
                                     </span>
@@ -316,65 +296,6 @@ const gmapsUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${p.lat
                 </div>
             </div>
         </div>
-
-        <!-- Modal detail / live stream -->
-        <Dialog v-model:open="isDetailOpen">
-            <DialogContent class="sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle class="flex items-center gap-2">
-                        <Video v-if="selected?.stream_url" class="h-5 w-5 text-red-600" />
-                        <Wifi v-else class="h-5 w-5 text-sky-600" />
-                        {{ selected?.nama }}
-                    </DialogTitle>
-                    <DialogDescription>
-                        {{ selected?.kelurahan }}<template v-if="selected?.kecamatan">, {{ selected.kecamatan }}</template>
-                        &middot; {{ selected?.distance }} km dari RT-44
-                    </DialogDescription>
-                </DialogHeader>
-
-                <!-- Live stream CCTV -->
-                <div v-if="selected?.stream_url" class="space-y-2">
-                    <div class="relative overflow-hidden rounded-lg bg-black">
-                        <video ref="videoEl" class="aspect-video w-full" controls autoplay muted playsinline></video>
-
-                        <div v-if="isLoadingStream"
-                             class="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 text-sm text-white">
-                            <Loader2 class="h-4 w-4 animate-spin" />
-                            Memuat live stream...
-                        </div>
-                    </div>
-
-                    <div v-if="streamError"
-                         class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                        <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0" />
-                        <span>{{ streamError }}</span>
-                    </div>
-                </div>
-
-                <!-- Info titik wifi -->
-                <div v-else class="rounded-lg border border-sky-100 bg-sky-50 p-4 text-sm text-sky-900">
-                    <div class="flex items-start gap-2">
-                        <MapPin class="mt-0.5 h-4 w-4 shrink-0" />
-                        <div>
-                            <p class="font-medium">Titik Wifi Gratis Pemkot Balikpapan</p>
-                            <p class="mt-1 text-sky-800">{{ selected?.alamat || 'Alamat tidak tersedia.' }}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-between gap-2 pt-1">
-                    <span class="text-xs text-gray-400">
-                        {{ selected?.lat?.toFixed(5) }}, {{ selected?.lng?.toFixed(5) }}
-                    </span>
-                    <Button as="a" :href="selected ? gmapsUrl(selected) : '#'" target="_blank" rel="noopener"
-                            variant="outline" size="sm" class="gap-1.5">
-                        <Navigation class="h-3.5 w-3.5" />
-                        Buka di Google Maps
-                        <ExternalLink class="h-3 w-3" />
-                    </Button>
-                </div>
-            </DialogContent>
-        </Dialog>
     </AuthenticatedLayout>
 </template>
 
@@ -389,9 +310,17 @@ const gmapsUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${p.lat
     border: 2px solid #fff;
     border-radius: 9999px;
     box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+    transition: transform 120ms ease;
 }
 
-/* Leaflet memasang z-index tinggi yang menutupi modal Radix. */
+/* Marker yang sedang dipilih dibuat menonjol. */
+.peta-marker.is-selected span {
+    transform: scale(1.3);
+    border-color: #111827;
+    box-shadow: 0 0 0 4px rgb(17 24 39 / 0.15), 0 2px 6px rgb(0 0 0 / 0.4);
+}
+
+/* Leaflet memasang z-index tinggi yang bisa menutupi elemen di atasnya. */
 .leaflet-pane,
 .leaflet-top,
 .leaflet-bottom {

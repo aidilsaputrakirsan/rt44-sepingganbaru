@@ -27,7 +27,6 @@ class PetaKotaController extends Controller
                 'lat' => (float) config('services.emanuntung.lat'),
                 'lng' => (float) config('services.emanuntung.lng'),
             ],
-            'radiusKm' => (float) config('services.emanuntung.radius_km'),
         ]);
     }
 }
