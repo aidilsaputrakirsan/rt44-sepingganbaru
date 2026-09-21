@@ -12,9 +12,10 @@ import { Label } from '@/Components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/Components/ui/dialog';
 import { Plus, Trash2, Receipt, Edit2, AlertCircle, Copy, CalendarDays } from 'lucide-vue-next';
 
-defineProps({
+const props = defineProps({
  expenses: Array,
  groupedExpenses: Object,
+ blokOptions: { type: Array, default: () => [] },
 });
 
 const { isDemo, demoGuard } = useDemoGuard();
@@ -33,6 +34,7 @@ const form = useForm({
  amount: '',
  date: new Date().toISOString().substr(0, 10),
  category: 'operasional',
+ blok_group: 'shared',
 });
 
 const editForm = useForm({
@@ -40,6 +42,7 @@ const editForm = useForm({
  amount: '',
  date: '',
  category: 'operasional',
+ blok_group: 'shared',
 });
 
 const isCloneModalOpen = ref(false);
@@ -96,6 +99,7 @@ const openEditModal = (expense) => {
  // Ensure the date is in YYYY-MM-DD format for the input[type=date]
  editForm.date = expense.date ? expense.date.substr(0, 10) : '';
  editForm.category = expense.category;
+ editForm.blok_group = expense.blok_group || 'shared';
  editDisplayAmount.value = formatNumber(expense.amount);
  isEditModalOpen.value = true;
 };
@@ -121,6 +125,58 @@ const confirmDelete = () => {
  isDeleteModalOpen.value = false;
  expenseToDelete.value = null;
  }
+ });
+};
+
+// Warna badge penanda blok. Blok diambil dari data rumah, bukan daftar tetap,
+// jadi warnanya dipilih berurutan dari palet ini.
+const BADGE_PALETTE = [
+ 'bg-sky-100 text-sky-700',
+ 'bg-violet-100 text-violet-700',
+ 'bg-amber-100 text-amber-700',
+ 'bg-teal-100 text-teal-700',
+ 'bg-rose-100 text-rose-700',
+];
+
+const blokLetters = computed(() => props.blokOptions.filter((o) => o.value !== 'shared').map((o) => o.value));
+
+const blokBadge = (value) => {
+ if (!value || value === 'shared') return { text: 'Bersama', class: 'bg-slate-100 text-slate-600' };
+ const i = blokLetters.value.indexOf(value);
+ return { text: 'Blok ' + value, class: BADGE_PALETTE[(i < 0 ? 0 : i) % BADGE_PALETTE.length] };
+};
+
+// --- Penandaan massal ---
+const selectedIds = ref([]);
+const bulkBlok = ref('shared');
+const bulkForm = useForm({ ids: [], blok_group: 'shared' });
+
+const isSelected = (id) => selectedIds.value.includes(id);
+
+const toggleSelect = (id) => {
+ const i = selectedIds.value.indexOf(id);
+ if (i === -1) selectedIds.value.push(id);
+ else selectedIds.value.splice(i, 1);
+};
+
+const isMonthFullySelected = (monthlyExpenses) =>
+ monthlyExpenses.length > 0 && monthlyExpenses.every((e) => isSelected(e.id));
+
+const toggleMonth = (monthlyExpenses) => {
+ if (isMonthFullySelected(monthlyExpenses)) {
+ const ids = monthlyExpenses.map((e) => e.id);
+ selectedIds.value = selectedIds.value.filter((id) => !ids.includes(id));
+ } else {
+ monthlyExpenses.forEach((e) => { if (!isSelected(e.id)) selectedIds.value.push(e.id); });
+ }
+};
+
+const applyBulkBlok = () => {
+ bulkForm.ids = [...selectedIds.value];
+ bulkForm.blok_group = bulkBlok.value;
+ bulkForm.post(route('admin.expenses.bulk-blok'), {
+ preserveScroll: true,
+ onSuccess: () => { selectedIds.value = []; },
  });
 };
 
@@ -183,6 +239,26 @@ const submitCloneExpense = () => {
 
  <div class="py-12">
  <div class="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-8">
+
+ <!-- Bar penandaan massal -->
+ <div
+ v-if="selectedIds.length > 0"
+ class="sticky top-4 z-20 flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-indigo-200 bg-white/95 backdrop-blur px-4 py-3 shadow-lg"
+ >
+ <p class="text-sm font-semibold text-slate-700 flex-1">
+ <span class="text-indigo-600 font-black">{{ selectedIds.length }}</span> pengeluaran dipilih
+ </p>
+ <div class="flex items-center gap-2">
+ <Label class="text-xs text-slate-500 whitespace-nowrap">Tandai sebagai</Label>
+ <select v-model="bulkBlok" class="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+ <option v-for="opt in blokOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+ </select>
+ <Button size="sm" :disabled="bulkForm.processing" @click="demoGuard() && applyBulkBlok()" class="bg-indigo-600 hover:bg-indigo-700">
+ Terapkan
+ </Button>
+ <Button size="sm" variant="ghost" @click="selectedIds = []">Batal</Button>
+ </div>
+ </div>
  
  <div v-for="(monthlyExpenses, monthYear) in groupedExpenses" :key="monthYear">
  <div class="mb-4">
@@ -196,15 +272,34 @@ const submitCloneExpense = () => {
  <Table>
  <TableHeader>
  <TableRow>
+ <TableHead class="w-10">
+ <input
+ type="checkbox"
+ class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+ :checked="isMonthFullySelected(monthlyExpenses)"
+ @change="demoGuard() && toggleMonth(monthlyExpenses)"
+ :disabled="isDemo"
+ />
+ </TableHead>
  <TableHead class="w-32">Tanggal</TableHead>
  <TableHead>Keterangan / Kegiatan</TableHead>
  <TableHead>Kategori</TableHead>
+ <TableHead class="w-28">Blok</TableHead>
  <TableHead class="text-right">Nominal</TableHead>
   <TableHead class="text-center w-24">Action</TableHead>
  </TableRow>
  </TableHeader>
  <TableBody>
- <TableRow v-for="expense in monthlyExpenses" :key="expense.id">
+ <TableRow v-for="expense in monthlyExpenses" :key="expense.id" :class="isSelected(expense.id) ? 'bg-indigo-50/60' : ''">
+ <TableCell>
+ <input
+ type="checkbox"
+ class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+ :checked="isSelected(expense.id)"
+ @change="demoGuard() && toggleSelect(expense.id)"
+ :disabled="isDemo"
+ />
+ </TableCell>
  <TableCell>{{ new Date(expense.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) }}</TableCell>
  <TableCell class="font-medium text-slate-900">
  {{ expense.title }}
@@ -212,6 +307,11 @@ const submitCloneExpense = () => {
  <TableCell>
  <span class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-slate-100 rounded">
  {{ expense.category }}
+ </span>
+ </TableCell>
+ <TableCell>
+ <span class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded" :class="blokBadge(expense.blok_group).class">
+ {{ blokBadge(expense.blok_group).text }}
  </span>
  </TableCell>
  <TableCell class="text-right font-bold text-red-600">
@@ -311,6 +411,14 @@ const submitCloneExpense = () => {
  </div>
  </div>
 
+
+ <div class="space-y-2">
+ <Label>Blok Penerima Manfaat</Label>
+ <select v-model="form.blok_group" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+ <option v-for="opt in blokOptions" :key="opt.value" :value="opt.value">{{ opt.label }}<template v-if="opt.hint"> &mdash; {{ opt.hint }}</template></option>
+ </select>
+ <p class="text-xs text-slate-500">Pilih <strong>Bersama</strong> jika pengeluaran ini melayani dua blok sekaligus &mdash; nanti dibagi otomatis sesuai jumlah rumah tiap blok.</p>
+ </div>
  <div class="space-y-2">
  <Label>Nominal (Rp)</Label>
  <div class="relative">
@@ -365,6 +473,14 @@ const submitCloneExpense = () => {
  </div>
  </div>
 
+
+ <div class="space-y-2">
+ <Label>Blok Penerima Manfaat</Label>
+ <select v-model="editForm.blok_group" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+ <option v-for="opt in blokOptions" :key="opt.value" :value="opt.value">{{ opt.label }}<template v-if="opt.hint"> &mdash; {{ opt.hint }}</template></option>
+ </select>
+ <p class="text-xs text-slate-500">Pilih <strong>Bersama</strong> jika pengeluaran ini melayani dua blok sekaligus &mdash; nanti dibagi otomatis sesuai jumlah rumah tiap blok.</p>
+ </div>
  <div class="space-y-2">
  <Label>Nominal (Rp)</Label>
  <div class="relative">

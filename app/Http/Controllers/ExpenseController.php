@@ -3,11 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Expense;
+use App\Services\BlokService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class ExpenseController extends Controller
 {
+    public function __construct(private BlokService $blok)
+    {
+    }
+
     /**
      * Hanya bendahara (admin) & demo yang boleh kelola pengeluaran.
      * Ketua / warga dilarang akses lewat URL langsung.
@@ -30,6 +35,7 @@ class ExpenseController extends Controller
         });
 
         return Inertia::render('Admin/Expenses/Index', [
+            'blokOptions' => $this->blok->expenseOptions(),
             'groupedExpenses' => $groupedExpenses,
             // Still passing raw for flat usage if needed, though grouped is preferred now.
             'expenses' => $expenses, 
@@ -62,11 +68,35 @@ class ExpenseController extends Controller
                 // Set the exact same day of the month if possible, or fallback to the 1st
                 'date' => $targetDate->copy()->day(min($targetDate->daysInMonth, \Carbon\Carbon::parse($expense->date)->day))->format('Y-m-d'),
                 'category' => $expense->category,
+                'blok_group' => $expense->blok_group,
                 'notes' => $expense->notes,
             ]);
         }
 
         return back()->with('success', count($expensesToClone) . ' catatan pengeluaran berhasil disalin.');
+    }
+
+    /**
+     * Tandai ulang banyak pengeluaran sekaligus ke satu blok.
+     * Dipakai bendahara untuk merapikan catatan lama tanpa mengedit satu per satu.
+     */
+    public function bulkBlok(Request $request)
+    {
+        $this->guardSuperAdmin();
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer|exists:expenses,id',
+            'blok_group' => 'required|' . $this->blok->expenseGroupRule(),
+        ]);
+
+        $updated = Expense::whereIn('id', $validated['ids'])
+            ->update(['blok_group' => $validated['blok_group']]);
+
+        $label = $validated['blok_group'] === BlokService::SHARED
+            ? 'Bersama'
+            : 'Khusus Blok ' . $validated['blok_group'];
+
+        return back()->with('success', $updated . ' pengeluaran ditandai sebagai ' . $label . '.');
     }
 
     public function store(Request $request)
@@ -77,6 +107,7 @@ class ExpenseController extends Controller
             'amount' => 'required|numeric|min:0',
             'date' => 'required|date',
             'category' => 'nullable|string',
+            'blok_group' => 'required|' . $this->blok->expenseGroupRule(),
             'notes' => 'nullable|string',
         ]);
 
@@ -93,6 +124,7 @@ class ExpenseController extends Controller
             'amount' => 'required|numeric|min:0',
             'date' => 'required|date',
             'category' => 'nullable|string',
+            'blok_group' => 'required|' . $this->blok->expenseGroupRule(),
             'notes' => 'nullable|string',
         ]);
 

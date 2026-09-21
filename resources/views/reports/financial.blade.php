@@ -2,169 +2,223 @@
     $formatCurrency = function ($amount) {
         return 'Rp ' . number_format($amount, 0, ',', '.');
     };
+    $expenses = $report['expenses'];
+    $isBlokView = $report['is_blok_view'];
+    $hasShared = collect($expenses)->contains(fn ($e) => $e['is_shared']);
 @endphp
 
 <!DOCTYPE html>
-<html>
+<html lang="id">
 
 <head>
     <meta charset="utf-8">
-    <title>Laporan Keuangan RT-44 - {{ $report['period_label'] }}</title>
+    <title>Laporan Keuangan RT-44 - {{ $report['blok_label'] }} - {{ $report['period_label'] }}</title>
     <style>
         @page {
-            margin: 30mm 15mm 15mm 15mm;
+            margin: 32mm 18mm 20mm 18mm;
         }
 
         body {
             font-family: 'Helvetica', 'Arial', sans-serif;
-            color: #1e293b;
-            line-height: 1.5;
-            font-size: 11px;
+            color: #000000;
+            line-height: 1.55;
+            font-size: 11.5pt;
             margin: 0;
             padding: 0;
         }
 
-        /* === HEADER / KOP SURAT (fixed top every page) === */
-        .header {
+        /* ===== KOP SURAT (berulang di setiap halaman) ===== */
+        .kop {
             position: fixed;
-            top: -18mm;
+            top: -22mm;
             left: 0;
             right: 0;
-            border-bottom: 3px solid #f59e0b;
-            padding-bottom: 8px;
+            height: 20mm;
         }
 
-        .header table {
+        .kop table {
             width: 100%;
             border-collapse: collapse;
         }
 
-        .header td {
+        .kop td {
+            border: none;
+            padding: 0;
             vertical-align: middle;
+        }
+
+        .kop-logo {
+            width: 58px;
+        }
+
+        .kop-logo img {
+            width: 52px;
+            height: 52px;
+        }
+
+        .kop-text h1 {
+            margin: 0;
+            font-family: 'Times', 'Times New Roman', serif;
+            font-size: 16pt;
+            letter-spacing: 0.5px;
+        }
+
+        .kop-text h2 {
+            margin: 1px 0 0;
+            font-family: 'Times', 'Times New Roman', serif;
+            font-size: 10.5pt;
+            font-weight: normal;
+        }
+
+        .kop-rule {
+            border-bottom: 2.5pt solid #000;
+            margin-top: 5px;
+        }
+
+        .kop-rule-thin {
+            border-bottom: 0.75pt solid #000;
+            margin-top: 1.5px;
+        }
+
+        /* ===== FOOTER (nomor halaman) ===== */
+        .footer {
+            position: fixed;
+            bottom: -12mm;
+            left: 0;
+            right: 0;
+            border-top: 0.75pt solid #999;
+            padding-top: 4px;
+            font-size: 8.5pt;
+            color: #444;
+        }
+
+        .footer table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .footer td {
             border: none;
             padding: 0;
         }
 
-        .header-logo {
-            width: 55px;
+        .footer .page-num:after {
+            content: counter(page);
         }
 
-        .header-logo img {
-            width: 50px;
-            height: 50px;
+        /* ===== JUDUL DOKUMEN ===== */
+        .doc-title {
+            text-align: center;
+            margin-bottom: 18px;
         }
 
-        .header-text {
-            padding-left: 10px;
-        }
-
-        .header-text h1 {
-            margin: 0;
-            font-size: 18px;
-            color: #0f172a;
-            letter-spacing: 0.5px;
-        }
-
-        .header-text h2 {
-            margin: 2px 0 0;
-            font-size: 10px;
-            color: #64748b;
-            font-weight: normal;
-            letter-spacing: 0.5px;
-        }
-
-        .header-period {
-            text-align: right;
-        }
-
-        .header-period .period-label {
-            font-size: 9px;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .header-period .period-value {
-            font-size: 15px;
+        .doc-title .t1 {
+            font-family: 'Times', 'Times New Roman', serif;
+            font-size: 14pt;
             font-weight: bold;
-            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        /* === SECTIONS === */
+        .doc-title .t2 {
+            font-family: 'Times', 'Times New Roman', serif;
+            font-size: 12pt;
+            margin-top: 2px;
+        }
+
+        .doc-title .t3 {
+            font-size: 9.5pt;
+            color: #444;
+            margin-top: 3px;
+        }
+
+        /* ===== JUDUL BAGIAN ===== */
         .section-title {
-            background-color: #fffbeb;
-            padding: 8px 12px;
-            font-weight: bold;
-            color: #92400e;
-            margin-top: 22px;
-            margin-bottom: 8px;
-            border-left: 4px solid #f59e0b;
-            font-size: 12px;
-        }
-
-        .section-title.income {
-            background-color: #f0fdf4;
-            color: #15803d;
-            border-left-color: #16a34a;
-        }
-
-        .section-title.expense {
-            background-color: #fef2f2;
-            color: #b91c1c;
-            border-left-color: #dc2626;
-        }
-
-        /* === RINGKASAN SALDO === */
-        .summary-table {
-            width: 100%;
-            border-collapse: collapse;
-            border: 1px solid #fcd34d;
-            background-color: #fffdf5;
-            margin-bottom: 20px;
-        }
-
-        .summary-table td {
-            padding: 10px 14px;
-            border-bottom: 1px solid #fef3c7;
-            font-size: 12px;
-        }
-
-        .summary-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .summary-total {
-            background-color: #fffbeb;
-        }
-
-        .summary-total td {
-            padding: 12px 14px;
-            font-size: 13px;
-        }
-
-        /* === TABLE === */
-        table.detail {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 16px;
-        }
-
-        table.detail th {
-            background-color: #fef3c7;
-            text-align: left;
-            padding: 8px 10px;
-            border-bottom: 2px solid #fde68a;
-            color: #92400e;
+            font-size: 11.5pt;
             font-weight: bold;
             text-transform: uppercase;
-            font-size: 9px;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.6px;
+            border-bottom: 1.2pt solid #000;
+            padding-bottom: 4px;
+            margin: 24px 0 9px;
         }
 
-        table.detail td {
+        .section-note {
+            font-size: 9.5pt;
+            color: #444;
+            margin: -4px 0 8px;
+        }
+
+        /* ===== TABEL ===== */
+        table.data {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 4px;
+        }
+
+        table.data th {
+            background-color: #ededed;
+            text-align: left;
+            padding: 7px 9px;
+            border: 0.75pt solid #808080;
+            font-size: 10pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        table.data td {
+            padding: 6px 9px;
+            border: 0.75pt solid #b0b0b0;
+            font-size: 11pt;
+        }
+
+        table.data tbody tr.zebra td {
+            background-color: #f7f7f7;
+        }
+
+        table.data tfoot td {
+            padding: 8px 9px;
+            border: 0.75pt solid #808080;
+            border-top: 1.2pt solid #000;
+            background-color: #ededed;
+            font-weight: bold;
+            font-size: 11pt;
+        }
+
+        table.data.compact th {
+            font-size: 9pt;
+            padding: 5px 7px;
+        }
+
+        table.data.compact td {
+            font-size: 10pt;
+            padding: 4.5px 7px;
+        }
+
+        table.data.compact tfoot td {
+            font-size: 10pt;
+            padding: 6px 7px;
+        }
+
+        /* ===== RINGKASAN SALDO ===== */
+        table.summary td {
             padding: 8px 10px;
-            border-bottom: 1px solid #f1f5f9;
-            font-size: 11px;
+            border: 0.75pt solid #b0b0b0;
+            font-size: 11.5pt;
+        }
+
+        table.summary tr.grand td {
+            border: 1.2pt solid #000;
+            background-color: #ededed;
+            font-weight: bold;
+            font-size: 13pt;
+            padding: 10px;
+        }
+
+        .col-no {
+            width: 34px;
+            text-align: center;
         }
 
         .text-right {
@@ -179,37 +233,43 @@
             font-weight: bold;
         }
 
-        .income-text {
-            color: #16a34a;
+        .muted {
+            color: #555;
+            font-size: 10pt;
         }
 
-        .expense-text {
-            color: #dc2626;
+        .tag {
+            font-size: 8.5pt;
+            color: #333;
+            white-space: nowrap;
         }
 
-        .total-row td {
-            border-top: 2px solid #e2e8f0;
-            background-color: #f8fafc;
-            font-weight: bold;
-            padding: 10px;
+        .empty-row td {
+            text-align: center;
+            color: #555;
+            font-style: italic;
+            padding: 14px;
         }
 
-        .saldo-value {
-            font-size: 18px;
-            color: #d97706;
-            font-weight: bold;
+        .note-box {
+            border: 0.75pt solid #b0b0b0;
+            background-color: #f7f7f7;
+            padding: 8px 10px;
+            font-size: 9.5pt;
+            color: #333;
+            margin-top: 10px;
         }
 
-        /* === TTD === */
+        /* ===== TANDA TANGAN ===== */
         .signature-section {
             page-break-inside: avoid;
-            margin-top: 40px;
+            margin-top: 34px;
         }
 
-        .signature-section p.mengetahui {
-            text-align: center;
-            margin-bottom: 8px;
-            font-size: 11px;
+        .signature-place {
+            text-align: right;
+            font-size: 11pt;
+            margin-bottom: 10px;
         }
 
         .signature-table {
@@ -221,162 +281,286 @@
             width: 50%;
             text-align: center;
             vertical-align: top;
-            padding: 0 20px;
+            padding: 0 16px;
             border: none;
-        }
-
-        .signature-title {
-            font-weight: bold;
-            font-size: 11px;
-            margin-bottom: 5px;
+            font-size: 11pt;
         }
 
         .signature-box {
-            height: 65px;
-            text-align: center;
+            height: 68px;
         }
 
         .signature-box img {
-            height: 60px;
+            height: 62px;
             width: auto;
         }
 
         .signature-name {
             font-weight: bold;
-            font-size: 11px;
-            border-top: 1px solid #0f172a;
+            border-bottom: 0.75pt solid #000;
             display: inline-block;
-            padding-top: 4px;
+            padding: 0 6px 1px;
+        }
+
+        .signature-role {
+            font-size: 10pt;
+            color: #333;
+            margin-top: 3px;
         }
     </style>
 </head>
 
 <body>
-    <!-- KOP SURAT (fixed di atas setiap halaman) -->
-    <div class="header">
+    {{-- KOP SURAT --}}
+    <div class="kop">
         <table>
             <tr>
-                <td class="header-logo">
+                <td class="kop-logo">
                     <img src="{{ public_path('logort.png') }}" alt="Logo RT-44">
                 </td>
-                <td class="header-text">
-                    <h1>LAPORAN KEUANGAN RT-44</h1>
+                <td class="kop-text">
+                    <h1>RUKUN TETANGGA 44</h1>
                     <h2>Perumahan Sepinggan Baru &mdash; Gading City, Balikpapan</h2>
                 </td>
-                <td class="header-period">
-                    <div class="period-label">Periode</div>
-                    <div class="period-value">{{ $report['period_label'] }}</div>
-                </td>
+            </tr>
+        </table>
+        <div class="kop-rule"></div>
+        <div class="kop-rule-thin"></div>
+    </div>
+
+    {{-- FOOTER --}}
+    <div class="footer">
+        <table>
+            <tr>
+                <td>Laporan Keuangan {{ $report['blok_label'] }} &mdash; Periode {{ $report['period_label'] }}</td>
+                <td class="text-right">Halaman <span class="page-num"></span></td>
             </tr>
         </table>
     </div>
 
-    <!-- KONTEN -->
-    <div class="section-title" style="margin-top: 0;">Ringkasan Saldo</div>
-    <table class="summary-table">
-        <tr>
-            <td>Saldo Awal Periode</td>
-            <td class="text-right font-bold" style="font-size: 13px;">{{ $formatCurrency($report['saldo_awal']) }}</td>
-        </tr>
-        <tr>
-            <td class="income-text">Total Pemasukan (Iuran)</td>
-            <td class="text-right font-bold income-text" style="font-size: 13px;">+ {{ $formatCurrency($report['total_income']) }}</td>
-        </tr>
-        <tr>
-            <td class="expense-text">Total Pengeluaran</td>
-            <td class="text-right font-bold expense-text" style="font-size: 13px;">- {{ $formatCurrency($report['total_expenses']) }}</td>
-        </tr>
-        <tr class="summary-total">
-            <td class="font-bold" style="color: #0f172a; font-size: 13px;">Saldo Akhir Kas</td>
-            <td class="text-right saldo-value">{{ $formatCurrency($report['saldo_akhir']) }}</td>
-        </tr>
-    </table>
+    {{-- JUDUL DOKUMEN --}}
+    <div class="doc-title">
+        <div class="t1">Laporan Keuangan Bulanan</div>
+        <div class="t2">
+            @if($isBlokView) {{ $report['blok_label'] }} &mdash; @endif
+            Periode {{ $report['period_label'] }}
+        </div>
+        @if($isBlokView)
+            <div class="t3">{{ $report['house_count'] }} rumah dari total {{ $report['total_houses'] }} rumah RT-44 ({{ number_format($report['share_percent'], 1, ',', '.') }}%)</div>
+        @endif
+    </div>
 
-    <!-- RINCIAN PEMASUKAN -->
-    <div class="section-title income">Rincian Pemasukan</div>
-    <table class="detail">
+    {{-- A. RINGKASAN --}}
+    @if($isBlokView)
+        <div class="section-title" style="margin-top: 0;">A. Ringkasan {{ $report['blok_label'] }}</div>
+        <table class="data summary">
+            <tr>
+                <td>Total Pemasukan (Iuran Warga {{ $report['blok_label'] }})</td>
+                <td class="text-right font-bold" style="width: 40%;">{{ $formatCurrency($report['total_income']) }}</td>
+            </tr>
+            <tr>
+                <td>Pengeluaran Khusus {{ $report['blok_label'] }}</td>
+                <td class="text-right font-bold">{{ $report['expenses_direct'] > 0 ? '- ' : '' }}{{ $formatCurrency($report['expenses_direct']) }}</td>
+            </tr>
+            <tr>
+                <td>Porsi Pengeluaran Bersama ({{ number_format($report['share_percent'], 1, ',', '.') }}%)</td>
+                <td class="text-right font-bold">{{ $report['expenses_shared'] > 0 ? '- ' : '' }}{{ $formatCurrency($report['expenses_shared']) }}</td>
+            </tr>
+            <tr class="grand">
+                <td>SELISIH {{ strtoupper($report['blok_label']) }}</td>
+                <td class="text-right">{{ $report['net'] >= 0 ? '' : '- ' }}{{ $formatCurrency(abs($report['net'])) }}</td>
+            </tr>
+        </table>
+        <div class="note-box">
+            Kas RT-44 tetap satu. Laporan ini memisahkan pemasukan dan pengeluaran
+            {{ $report['blok_label'] }} saja, sehingga yang ditampilkan adalah selisih blok,
+            bukan saldo kas. Saldo kas RT selengkapnya ada di laporan gabungan.
+        </div>
+    @else
+        <div class="section-title" style="margin-top: 0;">A. Ringkasan Kas</div>
+        <table class="data summary">
+            <tr>
+                <td>Saldo Awal Periode</td>
+                <td class="text-right font-bold" style="width: 40%;">{{ $formatCurrency($report['saldo_awal']) }}</td>
+            </tr>
+            <tr>
+                <td>Total Pemasukan (Iuran Warga)</td>
+                <td class="text-right font-bold">+ {{ $formatCurrency($report['total_income']) }}</td>
+            </tr>
+            <tr>
+                <td>Total Pengeluaran</td>
+                <td class="text-right font-bold">- {{ $formatCurrency($report['total_expenses']) }}</td>
+            </tr>
+            <tr class="grand">
+                <td>SALDO AKHIR KAS</td>
+                <td class="text-right">{{ $formatCurrency($report['saldo_akhir']) }}</td>
+            </tr>
+        </table>
+    @endif
+
+    {{-- B. RINCIAN PEMASUKAN --}}
+    <div class="section-title">B. Rincian Pemasukan</div>
+    <p class="section-note">
+        Dihitung dari pembayaran warga{{ $isBlokView ? ' ' . $report['blok_label'] : '' }} yang sudah diverifikasi pada periode ini.
+    </p>
+    <table class="data">
         <thead>
             <tr>
-                <th style="width: 40px; text-align: center;">No</th>
+                <th class="col-no">No</th>
                 <th>Sumber Pemasukan</th>
-                <th class="text-right">Nominal</th>
+                <th class="text-right" style="width: 32%;">Nominal</th>
             </tr>
         </thead>
         <tbody>
             <tr>
-                <td class="text-center">1</td>
+                <td class="col-no">1</td>
                 <td>Iuran Wajib</td>
                 <td class="text-right">{{ $formatCurrency($report['income_wajib']) }}</td>
             </tr>
-            <tr>
-                <td class="text-center">2</td>
+            <tr class="zebra">
+                <td class="col-no">2</td>
                 <td>Iuran Sukarela</td>
                 <td class="text-right">{{ $formatCurrency($report['income_sukarela']) }}</td>
             </tr>
         </tbody>
         <tfoot>
-            <tr class="total-row">
-                <td></td>
-                <td class="font-bold">Total Pemasukan</td>
-                <td class="text-right font-bold income-text">{{ $formatCurrency($report['total_income']) }}</td>
+            <tr>
+                <td colspan="2">Total Pemasukan</td>
+                <td class="text-right">{{ $formatCurrency($report['total_income']) }}</td>
             </tr>
         </tfoot>
     </table>
 
-    <!-- RINCIAN PENGELUARAN -->
-    <div class="section-title expense">Rincian Pengeluaran</div>
-    <table class="detail">
+    {{-- C. RINCIAN PENGELUARAN --}}
+    <div class="section-title">C. Rincian Pengeluaran</div>
+    @if($isBlokView && $hasShared)
+        <p class="section-note">
+            Pengeluaran bertanda <strong>Bersama</strong> melayani seluruh RT dan dibagi menurut jumlah rumah
+            ({{ $report['house_count'] }} dari {{ $report['total_houses'] }} rumah = {{ number_format($report['share_percent'], 1, ',', '.') }}%).
+        </p>
+    @endif
+    <table class="data {{ $isBlokView ? 'compact' : '' }}">
         <thead>
             <tr>
-                <th style="width: 40px; text-align: center;">No</th>
-                <th>Deskripsi Kegiatan / Keperluan</th>
-                <th class="text-right">Nominal</th>
+                <th class="col-no">No</th>
+                <th style="width: 78px;">Tanggal</th>
+                <th>Uraian Keperluan</th>
+                @if($isBlokView)
+                    <th style="width: 88px;">Sifat</th>
+                    <th class="text-right" style="width: 100px;">Nominal Nota</th>
+                    <th class="text-right" style="width: 100px;">Porsi {{ $report['blok_label'] }}</th>
+                @else
+                    <th class="text-right" style="width: 22%;">Nominal</th>
+                @endif
             </tr>
         </thead>
         <tbody>
-            @forelse($report['expenses'] as $expense)
-                <tr>
-                    <td class="text-center">{{ $loop->iteration }}</td>
-                    <td>{{ $expense->title }}</td>
-                    <td class="text-right expense-text">{{ $formatCurrency($expense->amount) }}</td>
+            @forelse($expenses as $i => $expense)
+                <tr class="{{ $i % 2 === 1 ? 'zebra' : '' }}">
+                    <td class="col-no">{{ $i + 1 }}</td>
+                    <td>{{ \Carbon\Carbon::parse($expense['date'])->isoFormat('D MMM Y') }}</td>
+                    <td>
+                        {{ $expense['title'] }}
+                        @if(!empty($expense['category']))
+                            <span class="muted">({{ $expense['category'] }})</span>
+                        @endif
+                        @if(!$isBlokView && $expense['blok_group'] !== 'shared')
+                            <span class="tag">[Khusus Blok {{ $expense['blok_group'] }}]</span>
+                        @endif
+                    </td>
+                    @if($isBlokView)
+                        <td class="tag">
+                            {{ $expense['is_shared'] ? 'Bersama' : 'Khusus ' . $report['blok_label'] }}
+                        </td>
+                        <td class="text-right">{{ $formatCurrency($expense['amount_full']) }}</td>
+                        <td class="text-right font-bold">{{ $formatCurrency($expense['amount']) }}</td>
+                    @else
+                        <td class="text-right">{{ $formatCurrency($expense['amount']) }}</td>
+                    @endif
                 </tr>
             @empty
-                <tr>
-                    <td colspan="3" class="text-center" style="color: #94a3b8; font-style: italic; padding: 16px;">
-                        Tidak ada catatan pengeluaran pada periode ini.
-                    </td>
+                <tr class="empty-row">
+                    <td colspan="{{ $isBlokView ? 6 : 4 }}">Tidak ada pengeluaran pada periode ini.</td>
                 </tr>
             @endforelse
         </tbody>
-        @if(count($report['expenses']) > 0)
+        @if(count($expenses) > 0)
             <tfoot>
-                <tr class="total-row">
-                    <td></td>
-                    <td class="font-bold">Total Pengeluaran</td>
-                    <td class="text-right font-bold expense-text">{{ $formatCurrency($report['total_expenses']) }}</td>
+                <tr>
+                    <td colspan="{{ $isBlokView ? 5 : 3 }}">
+                        Total Pengeluaran{{ $isBlokView ? ' ' . $report['blok_label'] : '' }}
+                    </td>
+                    <td class="text-right">{{ $formatCurrency($report['total_expenses']) }}</td>
                 </tr>
             </tfoot>
         @endif
     </table>
 
-    <!-- TANDA TANGAN -->
+    {{-- D. RINGKASAN PER BLOK (hanya laporan gabungan) --}}
+    @if(!$isBlokView && count($report['blok_summary']) > 0)
+        <div class="section-title">D. Ringkasan Per Blok</div>
+        <p class="section-note">
+            Pemasukan dipisah menurut blok rumah pembayar. Pengeluaran bersama dibagi menurut jumlah rumah tiap blok.
+        </p>
+        <table class="data">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">Blok</th>
+                    <th class="text-center" style="width: 90px;">Jml Rumah</th>
+                    <th class="text-right">Pemasukan</th>
+                    <th class="text-right">Pengeluaran</th>
+                    <th class="text-right">Selisih</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($report['blok_summary'] as $i => $b)
+                    <tr class="{{ $i % 2 === 1 ? 'zebra' : '' }}">
+                        <td class="font-bold">{{ $b['label'] }}</td>
+                        <td class="text-center">{{ $b['house_count'] }}</td>
+                        <td class="text-right">{{ $formatCurrency($b['income']) }}</td>
+                        <td class="text-right">{{ $formatCurrency($b['expenses']) }}</td>
+                        <td class="text-right font-bold">
+                            {{ $b['net'] >= 0 ? '' : '- ' }}{{ $formatCurrency(abs($b['net'])) }}
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>Total</td>
+                    <td class="text-center">{{ $report['total_houses'] }}</td>
+                    <td class="text-right">{{ $formatCurrency($report['total_income']) }}</td>
+                    <td class="text-right">{{ $formatCurrency($report['total_expenses']) }}</td>
+                    <td class="text-right">
+                        {{ $report['net'] >= 0 ? '' : '- ' }}{{ $formatCurrency(abs($report['net'])) }}
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    @endif
+
+    {{-- TANDA TANGAN --}}
     <div class="signature-section">
-        <p class="mengetahui">Mengetahui,</p>
+        <div class="signature-place">
+            Balikpapan, {{ \Carbon\Carbon::now()->isoFormat('D MMMM Y') }}
+        </div>
         <table class="signature-table">
             <tr>
                 <td>
-                    <div class="signature-title">Ketua RT.44</div>
+                    <div>Mengetahui,</div>
                     <div class="signature-box">
                         <img src="{{ public_path('images/ttd-ketuart.png') }}" alt="TTD Ketua RT">
                     </div>
                     <div class="signature-name">Aidil Saputra Kirsan</div>
+                    <div class="signature-role">Ketua RT-44</div>
                 </td>
                 <td>
-                    <div class="signature-title">Bendahara RT.44</div>
+                    <div>Dibuat oleh,</div>
                     <div class="signature-box">
                         <img src="{{ public_path('images/ttd-bendahara.png') }}" alt="TTD Bendahara">
                     </div>
                     <div class="signature-name">Dios Andri Baskoro</div>
+                    <div class="signature-role">Bendahara RT-44</div>
                 </td>
             </tr>
         </table>

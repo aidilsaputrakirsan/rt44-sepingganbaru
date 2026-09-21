@@ -10,7 +10,7 @@ import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
-import { TrendingUp, TrendingDown, Wallet, Calendar, Calculator, ArrowRight, Settings2, FileDown, Link, Pencil, RotateCcw, PieChart } from 'lucide-vue-next';
+import { TrendingUp, TrendingDown, Wallet, Calendar, Calculator, ArrowRight, Settings2, FileDown, Link, Pencil, RotateCcw, PieChart, Layers } from 'lucide-vue-next';
 
 const props = defineProps({
  report: Object,
@@ -21,6 +21,25 @@ const { isDemo, demoGuard } = useDemoGuard();
 
 // 'lumpsum' = basis tanggal bayar (default), 'period' = basis periode tagihan
 const viewMode = ref('lumpsum');
+
+// Filter blok: 'all' = seluruh RT, selebihnya huruf blok (G / H)
+const activeBlok = computed(() => props.report.blok);
+
+const blokOptions = computed(() => [
+ { value: 'all', label: 'Semua' },
+ ...Object.keys(props.report.house_counts || {}).map((g) => ({ value: g, label: 'Blok ' + g })),
+]);
+
+const goTo = (params = {}) => {
+ const [year, month] = props.report.period.split('-');
+ router.get(
+ route('admin.report.index'),
+ { month: parseInt(month), year: parseInt(year), blok: activeBlok.value, ...params },
+ { preserveState: true, preserveScroll: true },
+ );
+};
+
+const changeBlok = (blok) => goTo({ blok });
 
 const isModalOpen = ref(false);
 const isBreakdownOpen = ref(false);
@@ -88,14 +107,15 @@ const formatCurrency = (amount) => {
 
 const changePeriod = (e) => {
  const [year, month] = e.target.value.split('-');
- router.get(route('admin.report.index'), { month: parseInt(month), year: parseInt(year) }, { preserveState: true });
+ goTo({ month: parseInt(month), year: parseInt(year) });
 };
 
 const exportPdf = () => {
  const period = props.report.period.split('-');
  window.open(route('admin.report.export-pdf', {
  month: parseInt(period[1]),
- year: parseInt(period[0])
+ year: parseInt(period[0]),
+ blok: activeBlok.value
  }), '_blank');
 };
 </script>
@@ -112,7 +132,10 @@ const exportPdf = () => {
  Laporan Keuangan
  </h2>
  <p class="text-slate-500 mt-1 uppercase text-sm tracking-wider font-medium">
- Laporan Keuangan RT-44
+ {{ report.blok_label }}
+ <span v-if="report.is_blok_view" class="normal-case tracking-normal text-slate-400">
+ &middot; {{ report.house_count }} dari {{ report.total_houses }} rumah
+ </span>
  </p>
  </div>
  <div class="flex items-center gap-3 flex-wrap">
@@ -125,11 +148,23 @@ const exportPdf = () => {
  class="border-none bg-transparent p-0 text-sm font-semibold focus:ring-0"
  />
  </div>
+ <div class="flex items-center rounded-lg border bg-white shadow-sm overflow-hidden text-xs font-semibold">
+ <span class="px-2.5 py-2 text-slate-400 border-r bg-slate-50 flex items-center">
+ <Layers class="w-3.5 h-3.5" />
+ </span>
+ <button
+ v-for="opt in blokOptions"
+ :key="opt.value"
+ @click="changeBlok(opt.value)"
+ class="px-3 py-2 transition-colors"
+ :class="activeBlok === opt.value ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'"
+ >{{ opt.label }}</button>
+ </div>
  <Button variant="outline" size="sm" @click="exportPdf" class="bg-white hover:bg-slate-50 border-indigo-200 text-indigo-700">
  <FileDown class="w-4 h-4 mr-2" />
  Ekspor PDF
  </Button>
- <Button variant="outline" size="sm" @click="demoGuard() && openModal()" :class="isDemo ? 'opacity-50 cursor-not-allowed' : ''">
+ <Button v-if="!report.is_blok_view" variant="outline" size="sm" @click="demoGuard() && openModal()" :class="isDemo ? 'opacity-50 cursor-not-allowed' : ''">
  <Settings2 class="w-4 h-4 mr-2" />
  Saldo Awal
  </Button>
@@ -145,8 +180,8 @@ const exportPdf = () => {
  <div class="py-12">
  <div class="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-6">
  <!-- Summary Stats -->
- <div v-if="viewMode === 'lumpsum'" class="grid grid-cols-1 md:grid-cols-4 gap-4">
- <Card class="border-l-4 border-l-blue-500">
+ <div v-if="viewMode === 'lumpsum'" class="grid grid-cols-1 gap-4" :class="report.is_blok_view ? 'md:grid-cols-3' : 'md:grid-cols-4'">
+ <Card v-if="!report.is_blok_view" class="border-l-4 border-l-blue-500">
  <CardHeader class="pb-2">
  <CardDescription class="flex items-center gap-1.5">
  Saldo Awal
@@ -177,9 +212,20 @@ const exportPdf = () => {
  <CardHeader class="pb-2">
  <CardDescription>Total Pengeluaran</CardDescription>
  <CardTitle class="text-xl font-bold text-red-600">- {{ formatCurrency(report.total_expenses) }}</CardTitle>
+ <p v-if="report.is_blok_view" class="text-[11px] text-slate-500 pt-1">
+ Khusus blok {{ formatCurrency(report.expenses_direct) }} + porsi bersama {{ formatCurrency(report.expenses_shared) }}
+ </p>
  </CardHeader>
  </Card>
- <Card class="border-l-4 border-l-emerald-600 bg-emerald-50/50">
+ <Card v-if="report.is_blok_view" class="border-l-4" :class="report.net >= 0 ? 'border-l-emerald-600 bg-emerald-50/50' : 'border-l-red-500 bg-red-50/50'">
+ <CardHeader class="pb-2">
+ <CardDescription>Selisih {{ report.blok_label }} ({{ report.period_label }})</CardDescription>
+ <CardTitle class="text-2xl font-black" :class="report.net >= 0 ? 'text-emerald-700' : 'text-red-700'">
+ {{ report.net >= 0 ? '+' : '' }}{{ formatCurrency(report.net) }}
+ </CardTitle>
+ </CardHeader>
+ </Card>
+ <Card v-if="!report.is_blok_view" class="border-l-4 border-l-emerald-600 bg-emerald-50/50">
  <CardHeader class="pb-2">
  <CardDescription>Saldo Akhir ({{ report.period_label }})</CardDescription>
  <CardTitle class="text-2xl font-black text-emerald-700">
@@ -239,7 +285,16 @@ const exportPdf = () => {
  </TableHeader>
  <TableBody>
  <TableRow v-for="expense in report.expenses" :key="expense.id">
- <TableCell class="text-sm">{{ expense.title }}</TableCell>
+ <TableCell class="text-sm">
+ {{ expense.title }}
+ <span
+ class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide"
+ :class="expense.is_shared ? 'bg-slate-100 text-slate-500' : 'bg-sky-100 text-sky-700'"
+ >{{ expense.is_shared ? 'Bersama' : 'Blok ' + expense.blok_group }}</span>
+ <div v-if="report.is_blok_view && expense.is_shared" class="text-[11px] text-slate-400 mt-0.5">
+ {{ formatCurrency(expense.amount_full) }} dibagi {{ expense.share_percent }}%
+ </div>
+ </TableCell>
  <TableCell class="text-right text-sm font-semibold text-red-600">{{ formatCurrency(expense.amount) }}</TableCell>
  </TableRow>
  <TableRow v-if="report.expenses.length === 0">
@@ -258,7 +313,83 @@ const exportPdf = () => {
  </div>
 
  <!-- Final Calculation Summary (Lump Sum only) -->
- <Card v-if="viewMode === 'lumpsum'" class="bg-slate-900 text-white overflow-hidden relative">
+ <!-- Perbandingan Antar Blok (tampilan gabungan) -->
+ <Card v-if="viewMode === 'lumpsum' && !report.is_blok_view && report.blok_summary.length > 1">
+ <CardHeader>
+ <CardTitle class="flex items-center gap-2">
+ <Layers class="w-5 h-5 text-indigo-500" />
+ Ringkasan Per Blok
+ </CardTitle>
+ <CardDescription>
+ Pemasukan dipisah menurut blok rumah pembayar. Pengeluaran bersama dibagi sesuai jumlah rumah tiap blok.
+ </CardDescription>
+ </CardHeader>
+ <CardContent>
+ <Table>
+ <TableHeader>
+ <TableRow>
+ <TableHead>Blok</TableHead>
+ <TableHead class="text-center">Jml Rumah</TableHead>
+ <TableHead class="text-right">Pemasukan</TableHead>
+ <TableHead class="text-right">Pengeluaran</TableHead>
+ <TableHead class="text-right">Selisih</TableHead>
+ <TableHead class="w-20"></TableHead>
+ </TableRow>
+ </TableHeader>
+ <TableBody>
+ <TableRow v-for="b in report.blok_summary" :key="b.blok">
+ <TableCell class="font-bold text-slate-900">{{ b.label }}</TableCell>
+ <TableCell class="text-center text-slate-500">{{ b.house_count }} <span class="text-[11px] text-slate-400">({{ b.share_percent }}%)</span></TableCell>
+ <TableCell class="text-right font-semibold text-green-600">{{ formatCurrency(b.income) }}</TableCell>
+ <TableCell class="text-right font-semibold text-red-600">{{ formatCurrency(b.expenses) }}</TableCell>
+ <TableCell class="text-right font-black" :class="b.net >= 0 ? 'text-emerald-700' : 'text-red-700'">{{ formatCurrency(b.net) }}</TableCell>
+ <TableCell class="text-right">
+ <Button variant="ghost" size="sm" class="text-indigo-600 h-7" @click="changeBlok(b.blok)">Rinci</Button>
+ </TableCell>
+ </TableRow>
+ </TableBody>
+ </Table>
+ <div class="mt-4 pt-4 border-t border-dashed flex justify-between items-center px-4 text-sm">
+ <span class="font-black">Total {{ report.total_houses }} rumah</span>
+ <span class="font-black">{{ formatCurrency(report.net) }}</span>
+ </div>
+ </CardContent>
+ </Card>
+
+ <!-- Ringkasan Selisih Blok (tampilan per blok) -->
+ <Card v-if="viewMode === 'lumpsum' && report.is_blok_view" class="bg-slate-900 text-white overflow-hidden relative">
+ <div class="absolute right-0 top-0 p-8 opacity-10">
+ <Calculator class="w-32 h-32" />
+ </div>
+ <CardHeader>
+ <CardTitle>Ringkasan {{ report.blok_label }} &mdash; {{ report.period_label }}</CardTitle>
+ <CardDescription class="text-slate-400">
+ {{ report.house_count }} rumah ({{ report.share_percent }}% dari RT-44). Pengeluaran bersama sudah dibagi proporsional.
+ </CardDescription>
+ </CardHeader>
+ <CardContent class="grid grid-cols-1 md:grid-cols-5 gap-6 items-center text-center md:text-left">
+ <div class="space-y-1">
+ <p class="text-xs text-slate-400 uppercase font-bold tracking-widest">Pemasukan</p>
+ <p class="text-xl font-bold">{{ formatCurrency(report.total_income) }}</p>
+ </div>
+ <p class="text-slate-500 text-center font-bold text-lg">&minus;</p>
+ <div class="space-y-1">
+ <p class="text-xs text-slate-400 uppercase font-bold tracking-widest">Pengeluaran</p>
+ <p class="text-xl font-bold text-red-400">{{ formatCurrency(report.total_expenses) }}</p>
+ </div>
+ <p class="text-slate-500 text-center font-bold text-lg">=</p>
+ <div class="space-y-1">
+ <p class="text-xs text-slate-400 uppercase font-bold tracking-widest">Selisih</p>
+ <p class="text-2xl font-black" :class="report.net >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ formatCurrency(report.net) }}</p>
+ </div>
+ <div class="md:col-start-1 md:col-end-6 pt-4 mt-4 border-t border-slate-800 text-xs text-slate-400 italic">
+ * Kas RT-44 tetap satu. Angka ini adalah selisih blok, bukan saldo kas &mdash; saldo kas ada di tampilan
+ <button @click="changeBlok('all')" class="underline text-slate-300 hover:text-white">Semua</button>.
+ </div>
+ </CardContent>
+ </Card>
+
+ <Card v-if="viewMode === 'lumpsum' && !report.is_blok_view" class="bg-slate-900 text-white overflow-hidden relative">
  <div class="absolute right-0 top-0 p-8 opacity-10">
  <Calculator class="w-32 h-32" />
  </div>
@@ -374,7 +505,16 @@ const exportPdf = () => {
                      </TableHeader>
                      <TableBody>
                          <TableRow v-for="expense in report.expenses" :key="expense.id">
-                             <TableCell class="text-sm">{{ expense.title }}</TableCell>
+ <TableCell class="text-sm">
+ {{ expense.title }}
+ <span
+ class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide"
+ :class="expense.is_shared ? 'bg-slate-100 text-slate-500' : 'bg-sky-100 text-sky-700'"
+ >{{ expense.is_shared ? 'Bersama' : 'Blok ' + expense.blok_group }}</span>
+ <div v-if="report.is_blok_view && expense.is_shared" class="text-[11px] text-slate-400 mt-0.5">
+ {{ formatCurrency(expense.amount_full) }} dibagi {{ expense.share_percent }}%
+ </div>
+ </TableCell>
                              <TableCell class="text-right text-sm font-semibold text-red-600">{{ formatCurrency(expense.amount) }}</TableCell>
                          </TableRow>
                          <TableRow v-if="report.expenses.length === 0">

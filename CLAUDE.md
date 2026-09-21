@@ -36,7 +36,7 @@ MonthlyBalance — saldo awal per bulan (standalone)
 | houses | blok, nomor, status_huni (berpenghuni/kosong), resident_status (pemilik/kontrak), is_connected, meteran_count, owner_id | |
 | dues | house_id, period (YYYY-MM-01), amount, status (unpaid/paid/overdue), due_date | Tagihan bulanan |
 | payments | due_id, payer_id, recorded_by, amount_paid, amount_wajib, amount_sukarela, method (transfer/cash/manual), status (pending/verified/rejected), proof_path, payment_date | |
-| expenses | title, amount, category, date, proof_path | |
+| expenses | title, amount, category, blok_group (G/H/shared), date, proof_path | |
 | monthly_balances | period, initial_balance, notes | Saldo awal tiap bulan |
 
 ### Aturan Bisnis Iuran (Pasal 5)
@@ -77,10 +77,11 @@ MonthlyBalance — saldo awal per bulan (standalone)
 | POST /admin/warga/import | WargaController@import | Import CSV |
 | GET /admin/expenses | ExpenseController@index | Daftar pengeluaran |
 | POST /admin/expenses | ExpenseController@store | Tambah pengeluaran |
+| POST /admin/expenses/bulk-blok | ExpenseController@bulkBlok | Tandai blok banyak pengeluaran sekaligus |
 | DELETE /admin/expenses/{expense} | ExpenseController@destroy | Hapus pengeluaran |
-| GET /admin/report | FinancialReportController@index | Laporan keuangan bulanan |
+| GET /admin/report | FinancialReportController@index | Laporan keuangan bulanan (query `blok`: all/G/H) |
 | POST /admin/report/initial-balance | FinancialReportController@updateInitialBalance | Set saldo awal |
-| GET /admin/report/export-pdf | FinancialReportController@exportPdf | Export PDF |
+| GET /admin/report/export-pdf | FinancialReportController@exportPdf | Export PDF (ikut filter `blok`) |
 
 ### Peta Kota (auth, semua role)
 | Route | Controller Method | Fungsi |
@@ -135,6 +136,10 @@ resources/js/Pages/
 - CCTV = item dengan `status: "CCTV"`; `keterangan` berisi URL HLS `.m3u8` siap putar
 - Respons di-cache 30 menit (`Cache::remember`), config di `config/services.php` → `emanuntung`
 
+### BlokService (`app/Services/BlokService.php`)
+- Sumber tunggal daftar blok. **Blok tidak pernah di-hardcode** — selalu diturunkan dari huruf awal `houses.blok`, jadi rumah blok baru otomatis jadi filter laporan & pilihan penanda pengeluaran
+- `counts()` jumlah rumah per blok · `expenseOptions()` pilihan dropdown · `expenseGroupRule()` aturan validasi `in:` dinamis · `splitShared()` pembagian proporsional · `normalizeFilter()` validasi filter laporan
+
 ### FonnteService (`app/Services/FonnteService.php`)
 - `send(target, message): array` — kirim WA via Fonnte API
 - Token di `.env`: `FONNTE_TOKEN`
@@ -172,6 +177,11 @@ resources/js/Pages/
 - **Search** client-side di Calendar, Tagihan, dan Data Warga (computed filter, tanpa request ke server)
 - **Bulk update tagihan** mengubah nominal semua dues bulan ini sekaligus berdasarkan status_huni (berpenghuni/kosong)
 - **Lump sum payment** dari Calendar: modal per-house menampilkan rincian semua bulan belum lunas, alokasi otomatis dari bulan terlama. Hapus manual payments lama lalu re-create saat submit
+- **Pemisahan keuangan per blok**: laporan bisa difilter `all` atau huruf blok manapun. Pemasukan dipisah dari huruf awal `houses.blok`. Pengeluaran ditandai `expenses.blok_group`: huruf blok (khusus satu blok) atau `shared` (melayani semua blok, dibagi proporsional jumlah rumah — saat ini 117 G : 34 H). Pembagian di `BlokService::splitShared()`, sisa pembulatan jatuh ke blok terbesar agar total selalu klop
+- **Konvensi penandaan**: `shared` hanya untuk biaya yang benar-benar satu paket dan tak bisa dipecah (retribusi DLH, angkut sampah se-RT). Biaya yang jumlah unitnya beda tiap blok (security, taman, listrik pos) **dipecah jadi entri per blok**, bukan ditandai `shared` — kalau digabung lalu dibagi per rumah, hasilnya salah di dua sisi
+- **Penandaan massal** di menu Pengeluaran: checkbox per baris / per bulan, lalu terapkan satu penanda sekaligus (`admin.expenses.bulk-blok`)
+- **Kas RT tetap satu**: saldo awal/akhir hanya muncul di tampilan gabungan. Tampilan per blok menampilkan Selisih (pemasukan − pengeluaran), bukan saldo. `MonthlyBalance` tidak dipecah per blok
+- **PDF laporan keuangan** format dokumen resmi monokrom (bukan full color): kop bergaris ganda, bagian A–D bernomor, nomor halaman, tabel bergrid. Tampilan blok menambah kolom Nominal Nota vs Porsi Blok; tampilan gabungan menambah bagian D Ringkasan Per Blok
 - **Laporan keuangan** mengelompokkan pemasukan berdasarkan `payment_date` (tanggal pembayaran aktual), bukan `due.period`
 - **Peta Kota** pakai **Leaflet + OpenStreetMap** (gratis, tanpa API key — PWA aslinya pakai Google Maps yang butuh key berbayar). Marker pakai `L.divIcon` agar tidak bergantung file gambar bawaan Leaflet yang rusak saat di-bundle Vite
 - Layer marker wajib `L.featureGroup()` (**bukan** `L.layerGroup()`) karena hanya featureGroup yang punya `getBounds()` untuk auto-zoom
