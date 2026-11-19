@@ -102,9 +102,11 @@ const isScanKkOpen = ref(false);
 const isTinjauKkOpen = ref(false);
 const hasilKk = ref(null);
 const fotoKk = ref(null);
-const onHasilKk = (hasil, blob) => {
+const lampiranKk = ref(null);   // PDF asli bila sumbernya PDF
+const onHasilKk = (hasil, blob, asli) => {
     hasilKk.value = hasil;
     fotoKk.value = blob;
+    lampiranKk.value = asli || null;
     isTinjauKkOpen.value = true;
 };
 
@@ -112,7 +114,7 @@ const onHasilKk = (hasil, blob) => {
 const isScanKtpOpen = ref(false);
 const ktpTerbaca = ref(false);
 const ktpPeringatan = ref([]);
-const onHasilKtp = (hasil, blob) => {
+const onHasilKtp = (hasil, blob, asli) => {
     const d = hasil.data || {};
     Object.assign(ktpForm, {
         nama: d.nama_lengkap || ktpForm.nama,
@@ -127,7 +129,9 @@ const onHasilKtp = (hasil, blob) => {
         kewarganegaraan: d.kewarganegaraan || ktpForm.kewarganegaraan,
         alamat: d.alamat || ktpForm.alamat,
     });
-    if (blob) ktpForm.ktp_file = new File([blob], 'ktp.jpg', { type: blob.type || 'image/jpeg' });
+    // Lampiran: PDF asli bila muat batas upload KTP (5 MB), selain itu gambar hasil render/foto.
+    if (asli && asli.size <= 5 * 1024 * 1024) ktpForm.ktp_file = asli;
+    else if (blob) ktpForm.ktp_file = new File([blob], 'ktp.jpg', { type: blob.type || 'image/jpeg' });
     ktpPeringatan.value = hasil.peringatan || [];
     ktpTerbaca.value = true;
 };
@@ -679,6 +683,7 @@ const fileExt = (path) => (path?.split('.').pop() || '').toUpperCase();
             v-model:open="isTinjauKkOpen"
             :hasil="hasilKk"
             :foto="fotoKk"
+            :lampiran="lampiranKk"
             :house-id="house.id"
             :slot-rumah="slot"
             :ada-lampiran-kk="!!profile.kk_path"

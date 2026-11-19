@@ -84,7 +84,8 @@ class DataKeluargaController extends Controller
             'slot' => 'nullable|in:owner,tenant',
             'nomor_kk' => ['nullable', 'regex:/^\d{16}$/'],
             'simpan_foto' => 'nullable|boolean',
-            'foto' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:8192',
+            // Lampiran KK: foto, atau PDF asli bila scan dari PDF (yang dibaca AI tetap gambar render-nya)
+            'foto' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
             'anggota' => 'required|array|min:1|max:20',
             'anggota.*.id' => 'nullable|integer',
             'anggota.*.nama' => 'required|string|max:100',

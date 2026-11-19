@@ -16,7 +16,8 @@ import { AlertTriangle, Loader2, Save, UserCheck, UserPlus } from 'lucide-vue-ne
 const open = defineModel('open', { type: Boolean, default: false });
 const props = defineProps({
     hasil: { type: Object, default: null },       // { nomor_kk, alamat, anggota: [{ data, peringatan, id }], peringatan }
-    foto: { type: [Blob, File], default: null },
+    foto: { type: [Blob, File], default: null },       // gambar untuk pratinjau
+    lampiran: { type: [Blob, File], default: null },   // PDF asli (opsional) — disimpan sebagai lampiran KK
     houseId: { type: Number, required: true },
     slotRumah: { type: String, default: 'owner' }, // 'owner' | 'tenant'
     adaLampiranKk: { type: Boolean, default: false },
@@ -53,7 +54,7 @@ const galatBaris = (i, kunci) => form.errors[`anggota.${i}.${kunci}`];
 const simpan = () => {
     const ikut = baris.value.filter(b => b.ikut);
     form.slot = props.slotRumah;
-    form.foto = form.simpan_foto ? props.foto : null;
+    form.foto = form.simpan_foto ? (props.lampiran || props.foto) : null;
     form.anggota = ikut.map(b => ({ id: b.id, ...b.data }));
     form.post(route('admin.warga.profil.kk-anggota', props.houseId), {
         forceFormData: true,
@@ -172,7 +173,7 @@ const simpan = () => {
             <DialogFooter class="flex-col sm:flex-row sm:items-center gap-3 border-t pt-4">
                 <label v-if="foto" class="flex items-center gap-2 text-sm text-slate-700 sm:mr-auto cursor-pointer">
                     <input v-model="form.simpan_foto" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
-                    Simpan foto ini sebagai lampiran KK<span v-if="adaLampiranKk" class="text-slate-400">(menggantikan lampiran lama)</span>
+                    Simpan {{ lampiran ? 'PDF' : 'foto' }} ini sebagai lampiran KK<span v-if="adaLampiranKk" class="text-slate-400">(menggantikan lampiran lama)</span>
                 </label>
                 <Button variant="outline" :disabled="form.processing" @click="open = false">Batal</Button>
                 <Button class="bg-indigo-600 hover:bg-indigo-700 gap-2 h-11 px-6 text-base" :disabled="form.processing || !jumlahIkut" @click="simpan">

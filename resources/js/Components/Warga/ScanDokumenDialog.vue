@@ -8,7 +8,9 @@ import axios from 'axios';
 /**
  * Dialog foto dokumen → dibaca otomatis. Dipakai di Profil Data Warga untuk KTP dan
  * Kartu Keluarga. Foto dikecilkan di browser sebelum dikirim.
- * Emit `hasil` dengan (jawaban server, blob foto) — blob dipakai Profil warga sebagai lampiran.
+ * PDF (mis. KK elektronik dari Dukcapil) dirender ke gambar di browser (halaman 1) memakai pdfjs-dist
+ * yang di-import dinamis — yang dikirim ke AI tetap gambar JPEG.
+ * Emit `hasil` dengan (jawaban server, blob gambar, file asli PDF atau null) — untuk lampiran.
  */
 const props = defineProps({
     jenis: { type: String, default: 'ktp' },            // 'ktp' | 'kk'
@@ -26,6 +28,8 @@ const SISI_MAKS = isKk ? 2400 : 1600;
 
 const tahap = ref('pilih'); // 'pilih' | 'kamera' | 'pratinjau'
 const fotoBlob = ref(null);
+const fileAsli = ref(null);   // PDF asli (bila sumbernya PDF) — dipakai sebagai lampiran
+const infoPdf = ref('');
 const fotoUrl = ref('');
 const sedangMembaca = ref(false);
 const galat = ref('');
@@ -45,6 +49,8 @@ const setel = () => {
     if (fotoUrl.value) URL.revokeObjectURL(fotoUrl.value);
     tahap.value = 'pilih';
     fotoBlob.value = null;
+    fileAsli.value = null;
+    infoPdf.value = '';
     fotoUrl.value = '';
     galat.value = '';
     sedangMembaca.value = false;
@@ -100,12 +106,69 @@ const jepret = async () => {
     pakaiFoto(blob);
 };
 
+// Render halaman 1 PDF ke gambar (sisi terpanjang ±SISI_MAKS). pdfjs dimuat hanya saat dibutuhkan.
+const MAKS_PDF = 10 * 1024 * 1024;
+let pdfWorker = null;   // satu worker dipakai ulang selama halaman terbuka
+const renderPdf = async (file) => {
+    // `?worker` → Vite mem-build worker sebagai file .js (bukan .mjs, yang belum dikenal
+    // mime.types Nginx 1.18 di VPS sehingga worker bisa ditolak browser).
+    const [pdfjs, { default: PdfWorker }] = await Promise.all([
+        import('pdfjs-dist'),
+        import('pdfjs-dist/build/pdf.worker.min.mjs?worker'),
+    ]);
+    pdfWorker ??= new PdfWorker();
+    pdfjs.GlobalWorkerOptions.workerPort = pdfWorker;
+    // pdfjs v6: dokumen dibersihkan lewat loading task (PDFDocumentProxy.destroy sudah tidak ada).
+    const task = pdfjs.getDocument({ data: await file.arrayBuffer() });
+    try {
+        const pdf = await task.promise;
+        const page = await pdf.getPage(1);
+        const dasar = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: SISI_MAKS / Math.max(dasar.width, dasar.height) });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';   // PDF transparan → latar putih (JPEG tidak punya alpha)
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+        const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.9));
+        return { blob, halaman: pdf.numPages };
+    } finally {
+        task.destroy();
+    }
+};
+
+const isPdf = (file) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+
 const pilihFile = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    if (isPdf(file)) {
+        if (file.size > MAKS_PDF) {
+            galat.value = 'Ukuran PDF maksimal 10 MB.';
+            return;
+        }
+        sedangMembaca.value = true;
+        galat.value = '';
+        try {
+            const { blob, halaman } = await renderPdf(file);
+            pakaiFoto(blob);
+            fileAsli.value = file;
+            infoPdf.value = halaman > 1
+                ? `PDF ${halaman} halaman — hanya halaman 1 yang dibaca.`
+                : 'Dari file PDF.';
+        } catch (err) {
+            console.error('[ScanDokumen] gagal membuka PDF:', err);
+            galat.value = 'PDF tidak bisa dibuka (rusak atau terkunci password). Coba file lain atau foto dokumennya.';
+        } finally {
+            sedangMembaca.value = false;
+        }
+        return;
+    }
     if (!file.type.startsWith('image/')) {
-        galat.value = 'File harus berupa gambar (JPG/PNG).';
+        galat.value = 'File harus berupa gambar (JPG/PNG) atau PDF.';
         return;
     }
     try {
@@ -121,6 +184,8 @@ const pilihFile = async (e) => {
 const ulangi = () => {
     if (fotoUrl.value) URL.revokeObjectURL(fotoUrl.value);
     fotoBlob.value = null;
+    fileAsli.value = null;
+    infoPdf.value = '';
     fotoUrl.value = '';
     galat.value = '';
     tahap.value = 'pilih';
@@ -137,7 +202,7 @@ const bacaDenganAi = async () => {
         const { data } = await axios.post(props.endpoint || route('admin.warga.scan-ktp'), fd, {
             headers: { Accept: 'application/json' },
         });
-        emit('hasil', data, fotoBlob.value);
+        emit('hasil', data, fotoBlob.value, fileAsli.value);
         open.value = false;
     } catch (e) {
         const s = e.response?.status;
@@ -181,8 +246,9 @@ const bacaDenganAi = async () => {
                     class="flex flex-col items-center gap-2 p-6 rounded-xl border-2 border-dashed border-slate-300 hover:border-violet-400 hover:bg-violet-50 transition-colors"
                     @click="inputUnggahRef?.click()"
                 >
-                    <Upload class="w-8 h-8 text-violet-600" />
-                    <span class="text-sm font-medium text-slate-700">Unggah Foto</span>
+                    <Loader2 v-if="sedangMembaca" class="w-8 h-8 text-violet-600 animate-spin" />
+                    <Upload v-else class="w-8 h-8 text-violet-600" />
+                    <span class="text-sm font-medium text-slate-700">{{ sedangMembaca ? 'Membuka PDF...' : 'Unggah Foto / PDF' }}</span>
                 </button>
                 <p class="col-span-2 text-xs text-slate-500">
                     {{ isKk
@@ -211,6 +277,7 @@ const bacaDenganAi = async () => {
             <!-- Pratinjau -->
             <div v-else class="space-y-3">
                 <img :src="fotoUrl" :alt="`Pratinjau foto ${namaDok}`" class="w-full max-h-80 object-contain rounded-xl border border-slate-200 bg-slate-50" />
+                <p v-if="infoPdf" class="text-xs text-slate-500">{{ infoPdf }}</p>
             </div>
 
             <div v-if="galat" class="flex items-start gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
@@ -233,7 +300,7 @@ const bacaDenganAi = async () => {
                 </Button>
             </DialogFooter>
 
-            <input ref="inputUnggahRef" type="file" accept="image/*" class="hidden" @change="pilihFile" />
+            <input ref="inputUnggahRef" type="file" accept="image/*,application/pdf,.pdf" class="hidden" @change="pilihFile" />
             <input ref="inputKameraRef" type="file" accept="image/*" capture="environment" class="hidden" @change="pilihFile" />
         </DialogScrollContent>
     </Dialog>

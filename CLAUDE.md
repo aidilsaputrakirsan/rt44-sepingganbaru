@@ -141,6 +141,8 @@ resources/js/Pages/
 - `DataKeluargaController`: `POST /admin/warga/scan-ktp`, `POST /admin/warga/{house}/profil/scan-kk` (throttle 10/menit, tidak menyimpan apa pun), `POST /admin/warga/{house}/profil/kk-anggota` (simpan hasil yang sudah diperiksa; NIK/nama sama → diperbarui, bukan dobel)
 - UI di `Admin/Warga/Profile.vue` + `Components/Warga/ScanDokumenDialog.vue` & `TinjauKkDialog.vue`. Tombol hanya muncul bila `OPENROUTER_API_KEY` terisi (atau `OPENROUTER_FAKE=true`) dan role bukan demo
 - `OPENROUTER_FAKE=true` → hasil tiruan instan tanpa API, untuk development
+- Scan menerima **PDF** (mis. KK elektronik Dukcapil): halaman 1 dirender ke JPEG **di browser** pakai `pdfjs-dist` (di-`import()` dinamis), yang dikirim ke AI tetap gambar. PDF asli dipakai sebagai lampiran (KTP: bila ≤ 5 MB)
+- Versi `pdfjs-dist` **dikunci persis** di `6.4.299`. Worker di-import dengan `?worker` (bukan `?url`) supaya hasil build `.js`, bukan `.mjs` — Nginx 1.18 di VPS belum mengenal mime `.mjs`. Di v6 bersihkan dokumen dengan `loadingTask.destroy()` (`PDFDocumentProxy.destroy` sudah tidak ada)
 - Kolom pendidikan/disabilitas (ada di sistem sebelah) belum dipakai di sini
 
 ### Bantu tulis uraian Laporan Bulanan (role ketua)
