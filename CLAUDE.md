@@ -135,6 +135,25 @@ resources/js/Pages/
 - CCTV = item dengan `status: "CCTV"`; `keterangan` berisi URL HLS `.m3u8` siap putar
 - Respons di-cache 30 menit (`Cache::remember`), config di `config/services.php` → `emanuntung`
 
+### Scan KK/KTP dengan AI (`app/Services/Ai/`) — port dari sistem sepingganbaru-rt
+- `OpenRouterClient` — satu-satunya pintu ke OpenRouter; tiap request dipaksa `zdr: true` + `data_collection: deny`. Pemakaian token/biaya dicatat di tabel `ai_usages`
+- `PembacaKtp::baca()` / `PembacaKk::bacaKk()` — foto → JSON identitas, model vision utama lalu cadangan. Normalisasi nilai di `app/Support/NormalisasiIdentitas.php` (+ cek silang NIK vs tgl lahir/JK)
+- `DataKeluargaController`: `POST /admin/warga/scan-ktp`, `POST /admin/warga/{house}/profil/scan-kk` (throttle 10/menit, tidak menyimpan apa pun), `POST /admin/warga/{house}/profil/kk-anggota` (simpan hasil yang sudah diperiksa; NIK/nama sama → diperbarui, bukan dobel)
+- UI di `Admin/Warga/Profile.vue` + `Components/Warga/ScanDokumenDialog.vue` & `TinjauKkDialog.vue`. Tombol hanya muncul bila `OPENROUTER_API_KEY` terisi (atau `OPENROUTER_FAKE=true`) dan role bukan demo
+- `OPENROUTER_FAKE=true` → hasil tiruan instan tanpa API, untuk development
+- Kolom pendidikan/disabilitas (ada di sistem sebelah) belum dipakai di sini
+
+### Bantu tulis uraian Laporan Bulanan (role ketua)
+- `PenulisUraianKegiatan::tulis()` — catatan singkat ketua → uraian resmi gaya laporan dinas (2–4 kalimat, maks 700 karakter). Dilarang menambah fakta; ada "Tulis ulang" (kirim versi sebelumnya, temperature 0.8)
+- `POST /ketua/laporan-bulanan/{id}/ai-uraian` (throttle 10/menit) — hanya mengembalikan teks, disimpan lewat form kegiatan biasa
+- Yang dikirim ke AI: catatan + tanggal + nama wilayah (konstanta `WILAYAH`, RT 44). Foto, no. surat, data warga TIDAK dikirim
+- UI di `Ketua/LaporanBulanan/Show.vue` (tombol "Bantu tulis dengan AI" muncul bila `aiAktif`)
+
+### File KK/KTP di disk privat
+- Disimpan di disk `local` (`storage/app/private/profiles/{user_id}`), **bukan** `public` — tidak bisa dibuka lewat `/storage/...`
+- Disajikan lewat `FileController`: `GET /files/kk/{profile}` & `GET /files/ktp/{idCard}`. Boleh dibuka pemilik profil, admin, ketua. Demo & warga lain → 403
+- `php artisan dokumen:pindah-ke-privat [--dry-run]` — pindahkan file lama dari public ke privat (sekali setelah deploy, aman diulang)
+
 ### FonnteService (`app/Services/FonnteService.php`)
 - `send(target, message): array` — kirim WA via Fonnte API
 - Token di `.env`: `FONNTE_TOKEN`

@@ -13,7 +13,9 @@ import {
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/Components/ui/select';
-import { ArrowLeft, FileText, IdCard, Home, User, Mail, Phone, Users, Paperclip, Trash2, Upload, Pencil } from 'lucide-vue-next';
+import { ArrowLeft, FileText, IdCard, Home, User, Mail, Phone, Users, Paperclip, Trash2, Upload, Pencil, Camera, ScanLine, AlertTriangle } from 'lucide-vue-next';
+import ScanDokumenDialog from '@/Components/Warga/ScanDokumenDialog.vue';
+import TinjauKkDialog from '@/Components/Warga/TinjauKkDialog.vue';
 
 // Opsi dropdown identitas (dipakai form tambah & edit)
 const GENDER_OPTS = ['Laki-laki', 'Perempuan'];
@@ -26,6 +28,7 @@ const props = defineProps({
     owner: Object,
     profile: Object,
     slot: { type: String, default: 'owner' },
+    bacaOtomatis: { type: Boolean, default: false },
 });
 
 const isTenantSlot = props.slot === 'tenant';
@@ -94,6 +97,41 @@ const onKtpChange = (e) => {
     ktpForm.ktp_file = f;
 };
 
+// ── Foto Kartu Keluarga → semua anggota terisi → diperiksa di TinjauKkDialog ──
+const isScanKkOpen = ref(false);
+const isTinjauKkOpen = ref(false);
+const hasilKk = ref(null);
+const fotoKk = ref(null);
+const onHasilKk = (hasil, blob) => {
+    hasilKk.value = hasil;
+    fotoKk.value = blob;
+    isTinjauKkOpen.value = true;
+};
+
+// ── Baca KTP satu orang → isi form Tambah Anggota (foto sekalian jadi lampiran KTP) ──
+const isScanKtpOpen = ref(false);
+const ktpTerbaca = ref(false);
+const ktpPeringatan = ref([]);
+const onHasilKtp = (hasil, blob) => {
+    const d = hasil.data || {};
+    Object.assign(ktpForm, {
+        nama: d.nama_lengkap || ktpForm.nama,
+        nomor_ktp: d.nik || ktpForm.nomor_ktp,
+        jenis_kelamin: d.jenis_kelamin || ktpForm.jenis_kelamin,
+        tempat_lahir: d.tempat_lahir || ktpForm.tempat_lahir,
+        tanggal_lahir: d.tanggal_lahir || ktpForm.tanggal_lahir,
+        status_perkawinan: d.status_perkawinan || ktpForm.status_perkawinan,
+        agama: d.agama || ktpForm.agama,
+        pekerjaan: d.pekerjaan || ktpForm.pekerjaan,
+        golongan_darah: d.golongan_darah || ktpForm.golongan_darah,
+        kewarganegaraan: d.kewarganegaraan || ktpForm.kewarganegaraan,
+        alamat: d.alamat || ktpForm.alamat,
+    });
+    if (blob) ktpForm.ktp_file = new File([blob], 'ktp.jpg', { type: blob.type || 'image/jpeg' });
+    ktpPeringatan.value = hasil.peringatan || [];
+    ktpTerbaca.value = true;
+};
+
 const submitKtp = () => {
     if (!ktpForm.nama && !ktpForm.label && !ktpForm.ktp_file) {
         alert('Isi minimal Nama, atau pilih file KTP.');
@@ -106,6 +144,8 @@ const submitKtp = () => {
             onSuccess: () => {
                 ktpForm.reset();
                 ktpForm.kewarganegaraan = 'WNI';
+                ktpTerbaca.value = false;
+                ktpPeringatan.value = [];
                 if (ktpInputRef.value) ktpInputRef.value.value = '';
             },
         });
@@ -368,8 +408,32 @@ const fileExt = (path) => (path?.split('.').pop() || '').toUpperCase();
                     </CardDescription>
                 </CardHeader>
                 <CardContent class="space-y-4">
+                    <!-- Cara cepat: foto KK (semua anggota) / baca KTP (satu orang) -->
+                    <div v-if="bacaOtomatis" class="grid sm:grid-cols-2 gap-3">
+                        <button type="button" @click="isScanKkOpen = true"
+                            class="flex items-center gap-4 rounded-xl border-2 border-indigo-200 bg-indigo-50 p-4 text-left hover:border-indigo-400 hover:bg-indigo-100 transition-colors">
+                            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white"><Camera class="w-6 h-6" /></span>
+                            <span>
+                                <span class="block text-base font-bold text-indigo-900">Foto Kartu Keluarga</span>
+                                <span class="block text-xs text-indigo-800/80">Semua anggota keluarga terisi otomatis, tinggal diperiksa</span>
+                            </span>
+                        </button>
+                        <button type="button" @click="isScanKtpOpen = true"
+                            class="flex items-center gap-4 rounded-xl border-2 border-slate-200 bg-white p-4 text-left hover:border-violet-400 hover:bg-violet-50 transition-colors">
+                            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white"><ScanLine class="w-6 h-6" /></span>
+                            <span>
+                                <span class="block text-base font-bold text-slate-900">Baca KTP</span>
+                                <span class="block text-xs text-slate-500">Tambah satu orang dari foto KTP-nya</span>
+                            </span>
+                        </button>
+                    </div>
+
                     <div class="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-3">
-                        <p class="text-sm font-medium text-slate-700">Tambah Anggota Keluarga</p>
+                        <p class="text-sm font-medium text-slate-700">Tambah Anggota Keluarga <span v-if="bacaOtomatis" class="font-normal text-slate-400">(atau isi manual)</span></p>
+                        <div v-if="ktpTerbaca" class="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-900 space-y-1">
+                            <p>Isian di bawah terisi otomatis dari foto KTP — periksa, lengkapi, lalu tekan <strong>Simpan Anggota</strong>. Foto KTP ikut disimpan sebagai lampiran.</p>
+                            <p v-for="p in ktpPeringatan" :key="p" class="flex gap-1.5 text-red-700"><AlertTriangle class="w-3.5 h-3.5 shrink-0 mt-0.5" />{{ p }}</p>
+                        </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
                                 <Label>Nama Lengkap</Label>
@@ -600,5 +664,30 @@ const fileExt = (path) => (path?.split('.').pop() || '').toUpperCase();
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <!-- Foto KK → periksa → simpan; Baca KTP → isi form tambah anggota -->
+        <ScanDokumenDialog
+            v-if="bacaOtomatis"
+            v-model:open="isScanKkOpen"
+            jenis="kk"
+            :endpoint="route('admin.warga.profil.scan-kk', house.id)"
+            :data-tambahan="{ slot }"
+            catatan-privasi="Foto KK dibaca otomatis untuk mengisi data. Foto baru disimpan sebagai lampiran KK bila Anda mencentangnya saat menyimpan."
+            @hasil="onHasilKk"
+        />
+        <TinjauKkDialog
+            v-model:open="isTinjauKkOpen"
+            :hasil="hasilKk"
+            :foto="fotoKk"
+            :house-id="house.id"
+            :slot-rumah="slot"
+            :ada-lampiran-kk="!!profile.kk_path"
+        />
+        <ScanDokumenDialog
+            v-if="bacaOtomatis"
+            v-model:open="isScanKtpOpen"
+            catatan-privasi="Foto KTP dibaca otomatis untuk mengisi form, lalu ikut disimpan sebagai lampiran KTP anggota ini."
+            @hasil="onHasilKtp"
+        />
     </AuthenticatedLayout>
 </template>

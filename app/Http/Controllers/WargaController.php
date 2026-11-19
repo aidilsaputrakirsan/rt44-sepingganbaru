@@ -308,12 +308,12 @@ class WargaController extends Controller
                 // Hapus file fisik KK + KTP milik tenant
                 $profile = $tenant->residentProfile;
                 if ($profile) {
-                    if ($profile->kk_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($profile->kk_path)) {
-                        \Illuminate\Support\Facades\Storage::disk('public')->delete($profile->kk_path);
+                    if ($profile->kk_path && \Illuminate\Support\Facades\Storage::disk('local')->exists($profile->kk_path)) {
+                        \Illuminate\Support\Facades\Storage::disk('local')->delete($profile->kk_path);
                     }
                     foreach ($profile->idCards as $card) {
-                        if ($card->file_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($card->file_path)) {
-                            \Illuminate\Support\Facades\Storage::disk('public')->delete($card->file_path);
+                        if ($card->file_path && \Illuminate\Support\Facades\Storage::disk('local')->exists($card->file_path)) {
+                            \Illuminate\Support\Facades\Storage::disk('local')->delete($card->file_path);
                         }
                     }
                     // Cascade delete profile + idCards via FK cascadeOnDelete saat user dihapus

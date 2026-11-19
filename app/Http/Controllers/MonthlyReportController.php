@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\LetterNumber;
 use App\Models\MonthlyReport;
+use App\Services\Ai\AiTidakTersedia;
+use App\Services\Ai\PenulisUraianKegiatan;
 use App\Models\MonthlyReportActivity;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -76,7 +78,7 @@ class MonthlyReportController extends Controller
     }
 
     // ── Editor laporan ───────────────────────────────────────────
-    public function show(MonthlyReport $laporanBulanan)
+    public function show(MonthlyReport $laporanBulanan, PenulisUraianKegiatan $penulis)
     {
         $this->authorizeKetua();
 
@@ -108,7 +110,32 @@ class MonthlyReportController extends Controller
                 ]),
             ],
             'letterOptions' => $letterOptions,
+            'aiAktif'       => $penulis->aktif(),
         ]);
+    }
+
+    /** Bantu tulis uraian kegiatan dengan AI — hanya mengembalikan teks; disimpan lewat form seperti biasa. */
+    public function aiUraian(Request $request, MonthlyReport $laporanBulanan, PenulisUraianKegiatan $penulis)
+    {
+        $this->authorizeKetua();
+
+        $data = $request->validate([
+            'catatan'    => 'required|string|min:5|max:500',
+            'tanggal'    => 'nullable|date',
+            'sebelumnya' => 'nullable|string|max:1000',
+        ]);
+
+        if (! $penulis->aktif()) {
+            return response()->json(['pesan' => 'Bantuan AI belum dikonfigurasi.'], 503);
+        }
+
+        try {
+            return response()->json([
+                'uraian' => $penulis->tulis($request->user(), $data['catatan'], $data['tanggal'] ?? null, $data['sebelumnya'] ?? null),
+            ]);
+        } catch (AiTidakTersedia $e) {
+            return response()->json(['pesan' => $e->getMessage()], 503);
+        }
     }
 
     public function update(Request $request, MonthlyReport $laporanBulanan)

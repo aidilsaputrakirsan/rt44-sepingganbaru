@@ -34,6 +34,23 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    /*
+     * Baca otomatis foto KK/KTP di Data Warga lewat OpenRouter (API OpenAI-compatible).
+     * Setiap permintaan dipaksa ke penyedia Zero Data Retention tanpa pengumpulan data
+     * (lihat App\Services\Ai\OpenRouterClient). Kosongkan API key → fitur scan disembunyikan.
+     */
+    'openrouter' => [
+        'api_key' => env('OPENROUTER_API_KEY'),
+        'base_url' => env('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+        'model' => env('OPENROUTER_MODEL', 'qwen/qwen3-vl-30b-a3b-instruct'),
+        // Model yang bisa membaca gambar & punya penyedia ZDR; cadangan dicoba berurutan (pisahkan koma).
+        'vision_model' => env('OPENROUTER_VISION_MODEL', 'qwen/qwen3-vl-30b-a3b-instruct'),
+        'vision_fallbacks' => array_values(array_filter(array_map('trim', explode(',', (string) env('OPENROUTER_VISION_FALLBACKS', 'qwen/qwen3.5-9b'))))),
+        // Mode pengembangan: hasil tiruan instan tanpa API & kuota.
+        'fake' => (bool) env('OPENROUTER_FAKE', false),
+        'timeout' => (int) env('OPENROUTER_TIMEOUT', 60),
+    ],
+
     'fonnte' => [
         'token' => env('FONNTE_TOKEN'),
     ],

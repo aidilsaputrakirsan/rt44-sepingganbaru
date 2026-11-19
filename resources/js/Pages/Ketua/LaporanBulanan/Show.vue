@@ -8,11 +8,13 @@ import { Label } from '@/Components/ui/label';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/Components/ui/dialog';
-import { ArrowLeft, FileDown, Plus, Pencil, Trash2, Save, ImageOff } from 'lucide-vue-next';
+import { ArrowLeft, FileDown, Plus, Pencil, Trash2, Save, ImageOff, Sparkles, RefreshCw, RotateCcw, Loader2 } from 'lucide-vue-next';
+import axios from 'axios';
 
 const props = defineProps({
     report: Object,
     letterOptions: Array,
+    aiAktif: Boolean,
 });
 
 const formatTanggal = (d) => {
@@ -45,11 +47,54 @@ const aForm = useForm({
     remove_photo: false,
 });
 
+// ── Bantu tulis uraian dengan AI ─────────────────────────────
+// catatanAwal terisi selama hasil AI sedang tampil → bisa "Tulis ulang" / "Kembalikan catatan awal".
+const aiSibuk = ref(false);
+const aiGalat = ref('');
+const catatanAwal = ref(null);
+const hasilAi = ref(null);
+
+const resetAi = () => {
+    aiSibuk.value = false;
+    aiGalat.value = '';
+    catatanAwal.value = null;
+    hasilAi.value = null;
+};
+
+const bantuAi = async () => {
+    const tulisUlang = catatanAwal.value !== null;
+    const catatan = tulisUlang ? catatanAwal.value : aForm.uraian.trim();
+    aiSibuk.value = true;
+    aiGalat.value = '';
+    try {
+        const { data } = await axios.post(route('ketua.laporan-bulanan.ai-uraian', props.report.id), {
+            catatan,
+            tanggal: aForm.tanggal || null,
+            sebelumnya: tulisUlang ? hasilAi.value : null,
+        });
+        if (!tulisUlang) catatanAwal.value = catatan;
+        hasilAi.value = data.uraian;
+        aForm.uraian = data.uraian;
+    } catch (e) {
+        aiGalat.value = e.response?.status === 429
+            ? 'Terlalu sering meminta bantuan AI. Tunggu sebentar lalu coba lagi.'
+            : (e.response?.data?.pesan ?? e.response?.data?.errors?.catatan?.[0] ?? 'Bantuan AI gagal. Uraian bisa ditulis manual.');
+    } finally {
+        aiSibuk.value = false;
+    }
+};
+
+const kembalikanCatatan = () => {
+    aForm.uraian = catatanAwal.value;
+    resetAi();
+};
+
 const openAdd = () => {
     isEdit.value = false;
     editId.value = null;
     aForm.reset();
     aForm.clearErrors();
+    resetAi();
     existingPhoto.value = null;
     if (fileInputRef.value) fileInputRef.value.value = '';
     isModalOpen.value = true;
@@ -59,6 +104,7 @@ const openEdit = (a) => {
     isEdit.value = true;
     editId.value = a.id;
     aForm.clearErrors();
+    resetAi();
     aForm.tanggal = a.tanggal;
     aForm.uraian = a.uraian;
     aForm.no_surat = a.no_surat ?? '';
@@ -187,7 +233,7 @@ const confirmDelete = () => {
                         <div
                             v-for="(a, idx) in report.activities"
                             :key="a.id"
-                            class="flex items-start gap-4 p-5"
+                            class="flex items-start gap-3 p-4 sm:gap-4 sm:p-5"
                         >
                             <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-600">
                                 {{ idx + 1 }}
@@ -202,11 +248,11 @@ const confirmDelete = () => {
                                     <img v-if="a.photo_url" :src="a.photo_url" class="h-16 w-24 rounded border border-gray-200 object-cover" />
                                 </div>
                             </div>
-                            <div class="flex shrink-0 items-center gap-1">
-                                <Button size="sm" variant="outline" class="gap-1.5" @click="openEdit(a)">
+                            <div class="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-center">
+                                <Button size="sm" variant="outline" class="gap-1.5" aria-label="Edit" @click="openEdit(a)">
                                     <Pencil class="h-3.5 w-3.5" />
                                 </Button>
-                                <Button size="sm" variant="outline" class="gap-1.5 text-red-600 hover:bg-red-50 hover:text-red-700" @click="askDelete(a)">
+                                <Button size="sm" variant="outline" class="gap-1.5 text-red-600 hover:bg-red-50 hover:text-red-700" aria-label="Hapus" @click="askDelete(a)">
                                     <Trash2 class="h-3.5 w-3.5" />
                                 </Button>
                             </div>
@@ -237,18 +283,6 @@ const confirmDelete = () => {
                         <Input id="a_tgl" v-model="aForm.tanggal" type="date" class="mt-1" />
                         <p v-if="aForm.errors.tanggal" class="mt-0.5 text-xs text-red-600">{{ aForm.errors.tanggal }}</p>
                     </div>
-                    <div>
-                        <Label for="a_uraian">Uraian Kegiatan <span class="text-red-500">*</span></Label>
-                        <textarea
-                            id="a_uraian"
-                            v-model="aForm.uraian"
-                            rows="4"
-                            placeholder="Deskripsi kegiatan..."
-                            class="mt-1 w-full resize-y rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                        ></textarea>
-                        <p v-if="aForm.errors.uraian" class="mt-0.5 text-xs text-red-600">{{ aForm.errors.uraian }}</p>
-                    </div>
-
                     <div class="rounded-lg border border-gray-100 bg-gray-50 p-3">
                         <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Dokumentasi</p>
 
@@ -288,11 +322,61 @@ const confirmDelete = () => {
                             <p v-if="aForm.progress" class="mt-1 text-xs text-slate-500">Mengunggah... {{ aForm.progress.percentage }}%</p>
                         </div>
                     </div>
+
+                    <div>
+                        <div class="flex items-center justify-between gap-2">
+                            <Label for="a_uraian">Uraian Kegiatan <span class="text-red-500">*</span></Label>
+                            <div v-if="aiAktif" class="flex items-center gap-1">
+                                <template v-if="catatanAwal !== null">
+                                    <Button size="sm" variant="ghost" class="h-7 gap-1 px-2 text-xs text-slate-600" :disabled="aiSibuk" @click="kembalikanCatatan">
+                                        <RotateCcw class="h-3.5 w-3.5" /> Catatan awal
+                                    </Button>
+                                    <Button size="sm" variant="outline" class="h-7 gap-1 px-2 text-xs text-violet-700" :disabled="aiSibuk" @click="bantuAi">
+                                        <Loader2 v-if="aiSibuk" class="h-3.5 w-3.5 animate-spin" />
+                                        <RefreshCw v-else class="h-3.5 w-3.5" />
+                                        Tulis ulang
+                                    </Button>
+                                </template>
+                                <Button
+                                    v-else
+                                    size="sm"
+                                    variant="outline"
+                                    class="h-7 gap-1 border-violet-200 bg-violet-50 px-2 text-xs text-violet-700 hover:bg-violet-100"
+                                    :disabled="aiSibuk || aForm.uraian.trim().length < 5 || aForm.uraian.length > 500"
+                                    @click="bantuAi"
+                                >
+                                    <Loader2 v-if="aiSibuk" class="h-3.5 w-3.5 animate-spin" />
+                                    <Sparkles v-else class="h-3.5 w-3.5" />
+                                    {{ aiSibuk ? 'Menulis...' : 'Bantu tulis dengan AI' }}
+                                </Button>
+                            </div>
+                        </div>
+                        <textarea
+                            id="a_uraian"
+                            v-model="aForm.uraian"
+                            rows="5"
+                            :disabled="aiSibuk"
+                            :placeholder="aiAktif ? 'Tulis singkat saja, mis. &quot;kerja bakti bersihkan got blok C bersama warga&quot;, lalu klik Bantu tulis dengan AI.' : 'Deskripsi kegiatan...'"
+                            class="mt-1 w-full resize-y rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:bg-slate-50 disabled:text-slate-400"
+                        ></textarea>
+                        <div class="flex items-start justify-between gap-3">
+                            <p v-if="catatanAwal !== null" class="text-[11px] text-violet-600">
+                                Ditulis AI dari catatan Anda. Periksa & edit bila perlu sebelum menyimpan.
+                            </p>
+                            <p v-else-if="aiAktif" class="text-[11px] text-slate-400">
+                                AI hanya merapikan catatan Anda. Foto & data warga tidak dikirim.
+                            </p>
+                            <span v-else></span>
+                            <span class="shrink-0 text-[11px]" :class="aForm.uraian.length > 1000 ? 'text-red-600' : 'text-slate-400'">{{ aForm.uraian.length }}/1000</span>
+                        </div>
+                        <p v-if="aiGalat" class="mt-0.5 text-xs text-red-600">{{ aiGalat }}</p>
+                        <p v-if="aForm.errors.uraian" class="mt-0.5 text-xs text-red-600">{{ aForm.errors.uraian }}</p>
+                    </div>
                 </div>
 
                 <DialogFooter class="gap-2 sm:gap-0">
                     <Button variant="outline" :disabled="aForm.processing" @click="isModalOpen = false">Batal</Button>
-                    <Button :disabled="aForm.processing || !aForm.tanggal || !aForm.uraian" @click="submitActivity">
+                    <Button :disabled="aForm.processing || aiSibuk || !aForm.tanggal || !aForm.uraian" @click="submitActivity">
                         {{ aForm.processing ? 'Menyimpan...' : 'Simpan' }}
                     </Button>
                 </DialogFooter>

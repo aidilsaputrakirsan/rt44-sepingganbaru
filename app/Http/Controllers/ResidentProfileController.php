@@ -30,13 +30,19 @@ class ResidentProfileController extends Controller
         'alamat'            => 'nullable|string|max:255',
     ];
 
+    /** Dipakai DataKeluargaController (simpan hasil baca KK) supaya aturannya sama. */
+    public static function identityRules(): array
+    {
+        return self::IDENTITY_RULES;
+    }
+
     /** Ganti file KTP: hapus file lama (bila ada) lalu simpan yang baru. */
     private function replaceKtpFile(Request $request, ResidentIdCard $idCard, int $userId): string
     {
-        if ($idCard->file_path && Storage::disk('public')->exists($idCard->file_path)) {
-            Storage::disk('public')->delete($idCard->file_path);
+        if ($idCard->file_path && Storage::disk('local')->exists($idCard->file_path)) {
+            Storage::disk('local')->delete($idCard->file_path);
         }
-        return $request->file('ktp_file')->store("profiles/{$userId}", 'public');
+        return $request->file('ktp_file')->store("profiles/{$userId}", 'local');
     }
 
     /** Ambil hanya field identitas dari data tervalidasi. */
@@ -65,7 +71,7 @@ class ResidentProfileController extends Controller
             'kewarganegaraan' => $c->kewarganegaraan,
             'alamat' => $c->alamat,
             'file_path' => $c->file_path,
-            'file_url' => $c->file_path ? Storage::url($c->file_path) : null,
+            'file_url' => $c->file_path ? route('files.ktp', $c->id) : null,
         ];
     }
 
@@ -89,7 +95,7 @@ class ResidentProfileController extends Controller
                 'jumlah_anggota_keluarga' => $profile->jumlah_anggota_keluarga,
                 'nomor_kk' => $profile->nomor_kk,
                 'kk_path' => $profile->kk_path,
-                'kk_url' => $profile->kk_path ? Storage::url($profile->kk_path) : null,
+                'kk_url' => $profile->kk_path ? route('files.kk', $profile->id) : null,
                 'id_cards' => $profile->idCards->map(fn ($c) => $this->mapIdCard($c)),
             ],
             'readonly_info' => [
@@ -135,11 +141,11 @@ class ResidentProfileController extends Controller
 
         $profile = ResidentProfile::firstOrCreate(['user_id' => $user->id]);
 
-        if ($profile->kk_path && Storage::disk('public')->exists($profile->kk_path)) {
-            Storage::disk('public')->delete($profile->kk_path);
+        if ($profile->kk_path && Storage::disk('local')->exists($profile->kk_path)) {
+            Storage::disk('local')->delete($profile->kk_path);
         }
 
-        $path = $request->file('kk_file')->store("profiles/{$user->id}", 'public');
+        $path = $request->file('kk_file')->store("profiles/{$user->id}", 'local');
         $profile->update(['kk_path' => $path]);
 
         return back()->with('success', 'Kartu Keluarga berhasil diunggah.');
@@ -158,8 +164,8 @@ class ResidentProfileController extends Controller
             return back();
         }
 
-        if ($profile->kk_path && Storage::disk('public')->exists($profile->kk_path)) {
-            Storage::disk('public')->delete($profile->kk_path);
+        if ($profile->kk_path && Storage::disk('local')->exists($profile->kk_path)) {
+            Storage::disk('local')->delete($profile->kk_path);
         }
         $profile->update(['kk_path' => null]);
 
@@ -181,7 +187,7 @@ class ResidentProfileController extends Controller
         $profile = ResidentProfile::firstOrCreate(['user_id' => $user->id]);
 
         $path = $request->hasFile('ktp_file')
-            ? $request->file('ktp_file')->store("profiles/{$user->id}", 'public')
+            ? $request->file('ktp_file')->store("profiles/{$user->id}", 'local')
             : null;
 
         ResidentIdCard::create(array_merge($this->identityData($validated), [
@@ -229,8 +235,8 @@ class ResidentProfileController extends Controller
             abort(403);
         }
 
-        if ($idCard->file_path && Storage::disk('public')->exists($idCard->file_path)) {
-            Storage::disk('public')->delete($idCard->file_path);
+        if ($idCard->file_path && Storage::disk('local')->exists($idCard->file_path)) {
+            Storage::disk('local')->delete($idCard->file_path);
         }
 
         $idCard->delete();
@@ -277,10 +283,10 @@ class ResidentProfileController extends Controller
         $request->validate(['kk_file' => self::FILE_RULES]);
         $profile = ResidentProfile::firstOrCreate(['user_id' => $user->id]);
 
-        if ($profile->kk_path && Storage::disk('public')->exists($profile->kk_path)) {
-            Storage::disk('public')->delete($profile->kk_path);
+        if ($profile->kk_path && Storage::disk('local')->exists($profile->kk_path)) {
+            Storage::disk('local')->delete($profile->kk_path);
         }
-        $path = $request->file('kk_file')->store("profiles/{$user->id}", 'public');
+        $path = $request->file('kk_file')->store("profiles/{$user->id}", 'local');
         $profile->update(['kk_path' => $path]);
 
         return back()->with('success', 'Kartu Keluarga berhasil diunggah.');
@@ -294,8 +300,8 @@ class ResidentProfileController extends Controller
         if (!$profile || !$profile->kk_path) {
             return back();
         }
-        if ($profile->kk_path && Storage::disk('public')->exists($profile->kk_path)) {
-            Storage::disk('public')->delete($profile->kk_path);
+        if ($profile->kk_path && Storage::disk('local')->exists($profile->kk_path)) {
+            Storage::disk('local')->delete($profile->kk_path);
         }
         $profile->update(['kk_path' => null]);
 
@@ -312,7 +318,7 @@ class ResidentProfileController extends Controller
 
         $profile = ResidentProfile::firstOrCreate(['user_id' => $user->id]);
         $path = $request->hasFile('ktp_file')
-            ? $request->file('ktp_file')->store("profiles/{$user->id}", 'public')
+            ? $request->file('ktp_file')->store("profiles/{$user->id}", 'local')
             : null;
 
         ResidentIdCard::create(array_merge($this->identityData($validated), [
@@ -353,8 +359,8 @@ class ResidentProfileController extends Controller
             abort(403, 'KTP tidak terkait dengan slot ini.');
         }
 
-        if ($idCard->file_path && Storage::disk('public')->exists($idCard->file_path)) {
-            Storage::disk('public')->delete($idCard->file_path);
+        if ($idCard->file_path && Storage::disk('local')->exists($idCard->file_path)) {
+            Storage::disk('local')->delete($idCard->file_path);
         }
         $idCard->delete();
 
@@ -380,6 +386,8 @@ class ResidentProfileController extends Controller
         $profile = ResidentProfile::with('idCards')->firstOrCreate(['user_id' => $owner->id]);
 
         return Inertia::render('Admin/Warga/Profile', [
+            // Tombol scan KK/KTP hanya bila OpenRouter dikonfigurasi & bukan akun demo (hemat kuota AI)
+            'bacaOtomatis' => $user->role !== 'demo' && app(\App\Services\Ai\PembacaKtp::class)->aktif(),
             'house' => [
                 'id' => $house->id,
                 'blok' => $house->blok,
@@ -397,7 +405,7 @@ class ResidentProfileController extends Controller
                 'jumlah_anggota_keluarga' => $profile->jumlah_anggota_keluarga,
                 'nomor_kk' => $profile->nomor_kk,
                 'kk_path' => $profile->kk_path,
-                'kk_url' => $profile->kk_path ? Storage::url($profile->kk_path) : null,
+                'kk_url' => $profile->kk_path ? route('files.kk', $profile->id) : null,
                 'id_cards' => $profile->idCards->map(fn ($c) => $this->mapIdCard($c)),
             ],
         ]);

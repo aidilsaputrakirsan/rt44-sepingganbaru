@@ -60,6 +60,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/info/{info}', [\App\Http\Controllers\InfoController::class, 'destroy'])->name('info.destroy');
 });
 
+// File KK/KTP di disk privat — dicek hak aksesnya di FileController (pemilik / admin / ketua)
+Route::middleware('auth')->group(function () {
+    Route::get('/files/ktp/{idCard}', [\App\Http\Controllers\FileController::class, 'ktp'])->name('files.ktp');
+    Route::get('/files/kk/{profile}', [\App\Http\Controllers\FileController::class, 'kk'])->name('files.kk');
+});
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
     Route::get('/admin/tagihan', [AdminController::class, 'tagihan'])->name('admin.tagihan');
@@ -97,6 +103,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/admin/warga/{house}/profil/ktp', [\App\Http\Controllers\ResidentProfileController::class, 'adminUploadKtp'])->name('admin.warga.profil.ktp.upload');
     Route::put('/admin/warga/{house}/profil/ktp/{idCard}', [\App\Http\Controllers\ResidentProfileController::class, 'adminUpdateKtp'])->name('admin.warga.profil.ktp.update');
     Route::delete('/admin/warga/{house}/profil/ktp/{idCard}', [\App\Http\Controllers\ResidentProfileController::class, 'adminDeleteKtp'])->name('admin.warga.profil.ktp.delete');
+    // Baca otomatis foto KK/KTP (OpenRouter, ZDR) — hasil diperiksa dulu, dibatasi supaya biaya terkendali
+    Route::post('/admin/warga/scan-ktp', [\App\Http\Controllers\DataKeluargaController::class, 'scanKtp'])
+        ->middleware('throttle:10,1')->name('admin.warga.scan-ktp');
+    Route::post('/admin/warga/{house}/profil/scan-kk', [\App\Http\Controllers\DataKeluargaController::class, 'scanKk'])
+        ->middleware('throttle:10,1')->name('admin.warga.profil.scan-kk');
+    Route::post('/admin/warga/{house}/profil/kk-anggota', [\App\Http\Controllers\DataKeluargaController::class, 'simpanKk'])->name('admin.warga.profil.kk-anggota');
 
     // Expense Routes
     Route::get('/admin/expenses', [\App\Http\Controllers\ExpenseController::class, 'index'])->name('admin.expenses.index');
@@ -157,6 +169,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/ketua/laporan-bulanan', [\App\Http\Controllers\MonthlyReportController::class, 'store'])->name('ketua.laporan-bulanan.store');
     Route::get('/ketua/laporan-bulanan/{laporanBulanan}', [\App\Http\Controllers\MonthlyReportController::class, 'show'])->name('ketua.laporan-bulanan.show');
     Route::put('/ketua/laporan-bulanan/{laporanBulanan}', [\App\Http\Controllers\MonthlyReportController::class, 'update'])->name('ketua.laporan-bulanan.update');
+    // Bantu tulis uraian kegiatan dengan AI (OpenRouter, ZDR) — hanya teks catatan, dibatasi supaya biaya terkendali
+    Route::post('/ketua/laporan-bulanan/{laporanBulanan}/ai-uraian', [\App\Http\Controllers\MonthlyReportController::class, 'aiUraian'])
+        ->middleware('throttle:10,1')->name('ketua.laporan-bulanan.ai-uraian');
     Route::delete('/ketua/laporan-bulanan/{laporanBulanan}', [\App\Http\Controllers\MonthlyReportController::class, 'destroy'])->name('ketua.laporan-bulanan.destroy');
     Route::get('/ketua/laporan-bulanan/{laporanBulanan}/pdf', [\App\Http\Controllers\MonthlyReportController::class, 'exportPdf'])->name('ketua.laporan-bulanan.pdf');
     Route::post('/ketua/laporan-bulanan/{laporanBulanan}/activities', [\App\Http\Controllers\MonthlyReportController::class, 'storeActivity'])->name('ketua.laporan-bulanan.activities.store');
